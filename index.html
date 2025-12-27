@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tri-Action Optics Simulator</title>
+    <title>Quad-Action Eye Sim</title>
     <style>
         :root {
-            --bg: #f8fafc;
+            --bg: #f1f5f9;
             --panel: #ffffff;
             --accent: #2563eb;
-            --text: #334155;
+            --danger: #ef4444;
+            --success: #22c55e;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg);
-            color: var(--text);
             margin: 0;
             height: 100vh;
             display: flex;
@@ -23,119 +23,104 @@
             overflow: hidden;
         }
 
-        /* --- LAYOUT GRID --- */
-        .main-stage {
-            flex: 1;
+        /* --- 1. SIMULATION AREA (Compact Box) --- */
+        .stage-container {
+            flex-grow: 1; /* Takes remaining height */
             display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 10px;
-            gap: 10px;
-            min-height: 0;
+            background: var(--bg);
         }
 
-        /* The Simulation Box */
-        .visual-container {
-            flex: 1;
+        .visual-box {
+            width: 100%;
+            max-width: 800px;
+            height: 220px; /* Shortened height as requested */
             background: #fff;
-            border: 2px solid #333;
+            border: 2px solid #1e293b;
             border-radius: 8px;
             position: relative;
+            display: flex;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
         }
 
         canvas {
-            width: 100%;
-            height: 100%;
+            flex: 1;
             display: block;
+            border-top-left-radius: 6px;
+            border-bottom-left-radius: 6px;
         }
 
-        /* Right Sidebar (Accommodation) */
+        /* Right Sidebar (Acc Slider) attached to box */
         .acc-sidebar {
-            width: 70px;
-            background: #fff;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
+            width: 60px;
+            border-left: 1px solid #e2e8f0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 10px 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .acc-track {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
             padding: 10px 0;
+            background: #f8fafc;
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
         }
 
         /* Vertical Slider */
         input[type=range][orient=vertical] {
-            writing-mode: bt-lr; /* IE */
-            -webkit-appearance: slider-vertical; /* Webkit */
+            writing-mode: bt-lr; 
+            -webkit-appearance: slider-vertical;
             width: 8px;
             height: 100%;
             cursor: ns-resize;
+            margin: 5px 0;
         }
 
-        /* Bottom Controls (Object & Settings) */
-        .controls-deck {
+        /* --- 2. CONTROLS AREA (Bottom) --- */
+        .controls {
             background: #fff;
             border-top: 1px solid #cbd5e1;
-            padding: 15px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+            padding: 20px;
             flex-shrink: 0;
             z-index: 10;
         }
 
-        .settings-row {
+        .control-row {
             display: flex;
             gap: 15px;
+            margin-bottom: 15px;
             align-items: center;
-            flex-wrap: wrap;
         }
 
         select {
-            padding: 8px 12px;
+            flex: 1;
+            padding: 10px;
             border: 1px solid #94a3b8;
             border-radius: 6px;
-            font-size: 0.95rem;
-            flex: 1;
+            font-size: 1rem;
             background: #fff;
         }
 
-        .age-box {
+        .age-control {
             display: flex;
             align-items: center;
             background: #f1f5f9;
             padding: 5px 12px;
             border-radius: 20px;
             border: 1px solid #e2e8f0;
-        }
-        
-        .age-box input {
-            background: transparent;
-            border: none;
-            width: 40px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 1rem;
+            white-space: nowrap;
         }
 
-        /* Horizontal Slider (Object) */
-        .object-control {
+        .slider-group {
             width: 100%;
         }
-        .slider-header {
+        
+        .slider-label {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
             font-weight: 600;
             font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #334155;
         }
 
         input[type=range].h-slider {
@@ -146,45 +131,40 @@
         /* Floating Badge */
         .status-badge {
             position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 6px 12px;
-            border-radius: 6px;
-            border-left: 4px solid #ccc;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            font-size: 0.85rem;
-            line-height: 1.4;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 0.8rem;
+            font-weight: bold;
+            pointer-events: none;
         }
-        .status-badge b { display: block; font-size: 1rem; }
 
     </style>
 </head>
 <body>
 
-    <div class="main-stage">
-        
-        <div class="visual-container">
+    <div class="stage-container">
+        <div class="visual-box">
+            
             <canvas id="simCanvas"></canvas>
-            <div id="statusBadge" class="status-badge">
-                <b id="statusTitle">CLEAR</b>
-                <span id="statusDesc">Infinity</span>
-            </div>
-        </div>
-
-        <div class="acc-sidebar">
-            <span style="font-size:0.7rem; font-weight:bold; color:#64748b; text-align:center;">LENS<br>POWER</span>
-            <div class="acc-track">
+            
+            <div class="acc-sidebar">
+                <span style="font-size:0.6rem; color:#64748b; font-weight:bold;">LENS</span>
                 <input type="range" id="accSlider" orient="vertical" min="0" max="15" step="0.1" value="0">
+                <span id="accVal" style="font-size:0.7rem; color:#2563eb; font-weight:bold;">0.0 D</span>
             </div>
-            <span id="accDisplay" style="font-size:0.8rem; font-weight:bold; color:#2563eb;">0.0 D</span>
-        </div>
 
+            <div id="statusBadge" class="status-badge" style="color: green;">Parallel Light (Infinity)</div>
+
+        </div>
     </div>
 
-    <div class="controls-deck">
+    <div class="controls">
         
-        <div class="settings-row">
+        <div class="control-row">
             <select id="conditionSelect">
                 <option value="emmetropia">1. Emmetropia (Normal)</option>
                 <option value="myopia">2. Myopia (-2.50 D)</option>
@@ -192,16 +172,17 @@
                 <option value="presbyopia">4. Presbyopia (Emmetropia Base)</option>
             </select>
             
-            <div class="age-box">
-                <label for="ageInput" style="font-size:0.85rem; margin-right:5px;">Age:</label>
-                <input type="number" id="ageInput" value="20" min="10" max="80">
+            <div class="age-control">
+                <label style="font-size:0.85rem; margin-right:5px;">Age:</label>
+                <input type="number" id="ageInput" value="20" min="10" max="80" 
+                       style="width:30px; border:none; background:transparent; font-weight:bold; text-align:center;">
             </div>
         </div>
 
-        <div class="object-control">
-            <div class="slider-header">
-                <span>Move Object (Apple) 🍎</span>
-                <span id="distDisplay">Infinity</span>
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Move Object 🍎</span>
+                <span id="distVal">Infinity</span>
             </div>
             <input type="range" id="distSlider" class="h-slider" min="0" max="100" step="0.5" value="100">
         </div>
@@ -212,67 +193,60 @@
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
 
-    // UI Refs
+    // UI Elements
     const ui = {
         accSlider: document.getElementById('accSlider'),
         distSlider: document.getElementById('distSlider'),
         condSelect: document.getElementById('conditionSelect'),
         ageInput: document.getElementById('ageInput'),
-        
-        accDisplay: document.getElementById('accDisplay'),
-        distDisplay: document.getElementById('distDisplay'),
-        statusTitle: document.getElementById('statusTitle'),
-        statusDesc: document.getElementById('statusDesc'),
+        accVal: document.getElementById('accVal'),
+        distVal: document.getElementById('distVal'),
         badge: document.getElementById('statusBadge')
     };
 
-    // Physics State
+    // State
     let state = {
         condition: 'emmetropia',
         age: 20,
         maxAmp: 12.5,
-        refError: 0,      // -2.50 (Myopia), +2.50 (Hyperopia)
+        refError: 0,
         
-        currentAcc: 0,    // The actual power the lens is exerting
-        currentDistD: 0,  // The actual distance of the object in Diopters (0 = Infinity)
+        currentAcc: 0,    // Current Lens Power Exerted
+        currentDistD: 0,  // Current Object Distance in Diopters (0=Infinity)
         isBlurred: false
     };
 
-    // --- LOGIC ENGINE ---
+    // --- LOGIC ---
 
-    function calculateMaxAmp() {
-        // Hofstetter's: 18.5 - 0.3 * Age
-        let val = 18.5 - (0.3 * parseInt(ui.ageInput.value));
-        return Math.max(0, val);
-    }
-
-    function updateStateFromInputs() {
+    function updatePhysics() {
+        // 1. Set Constants
         state.condition = ui.condSelect.value;
         state.age = parseInt(ui.ageInput.value);
-        state.maxAmp = calculateMaxAmp();
+        
+        // Hofstetter's Rule
+        let amp = 18.5 - (0.3 * state.age);
+        state.maxAmp = Math.max(0, amp);
 
+        // Refractive Errors (Needs Correction)
         if (state.condition === 'emmetropia' || state.condition === 'presbyopia') state.refError = 0;
-        if (state.condition === 'myopia') state.refError = -2.50;   // Needs -2.50 correction
-        if (state.condition === 'hyperopia') state.refError = 2.50; // Needs +2.50 correction
+        if (state.condition === 'myopia') state.refError = -2.50;   // Eye is too strong
+        if (state.condition === 'hyperopia') state.refError = 2.50; // Eye is too weak
     }
 
-    // TRIGGER 1: Moving the Object (Apple)
-    function onObjectMove() {
-        updateStateFromInputs();
-
-        // 1. Get Demand from Slider (0-100 -> 10D-0D)
+    // SCENARIO 1: User moves Object (Lens reacts)
+    function onObjMove() {
+        updatePhysics();
+        
+        // Get Demand from Slider (100 -> 0D, 0 -> 10D)
         let sliderVal = parseFloat(ui.distSlider.value);
-        let demand = (100 - sliderVal) / 10; // 0 = Infinity, 10 = 10cm
+        let demand = (100 - sliderVal) / 10;
         state.currentDistD = demand;
 
-        // 2. Calculate Required Accommodation
-        // Needed = Demand + RefractiveError
-        // E.g. Hyperope (Error +2.5) looking at Infinity (0): Needed = 2.5
-        // E.g. Myope (Error -2.5) looking at 40cm (2.5): Needed = 2.5 + (-2.5) = 0
+        // Calculate needed Acc
         let needed = demand + state.refError;
-        if (needed < 0) needed = 0; // Lens can't be negative power
+        if (needed < 0) needed = 0;
 
-        // 3. Apply Max Amplitude Limit
+        // Apply Limits
         if (needed > state.maxAmp) {
             state.currentAcc = state.maxAmp;
             state.isBlurred = true;
@@ -281,78 +255,59 @@
             state.isBlurred = false;
         }
 
-        // 4. Update Acc Slider & Visuals
+        // Sync UI
         ui.accSlider.value = state.currentAcc;
-        updateVisuals();
+        render();
     }
 
-    // TRIGGER 2: Moving the Accommodation Slider
+    // SCENARIO 2: User moves Lens (Object reacts)
     function onAccMove() {
-        updateStateFromInputs();
+        updatePhysics();
 
-        // 1. Get Acc Effort
+        // Get Effort
         let effort = parseFloat(ui.accSlider.value);
         state.currentAcc = effort;
 
-        // 2. Check if Effort exceeds Max Amp (Physiological limit)
-        // If user drags past limit, we treat it as max effort but physical limit applies
-        // Or we allow it but show blur? Let's stick to "Lens matches slider" logic for clarity
-        // But mark it red if impossible?
-        // Let's assume the slider IS the lens shape.
-        
-        let effectiveAcc = state.currentAcc;
-        if (effectiveAcc > state.maxAmp) state.isBlurred = true; 
-        else state.isBlurred = false; // Temporarily reset, check distance match later
+        // Check Blur (Physical Limit)
+        if (state.currentAcc > state.maxAmp) state.isBlurred = true;
+        else state.isBlurred = false;
 
-        // 3. Calculate Focal Distance
-        // Where *is* the clear point for this Acc?
-        // ClearPoint = Acc - RefError
-        let clearD = effectiveAcc - state.refError;
-        if (clearD < 0) clearD = 0; // Virtual far point (Hyperopia) -> clamp to Infinity for object
+        // Calculate Distance Point
+        let clearD = state.currentAcc - state.refError;
+        if (clearD < 0) clearD = 0; // Virtual
 
         state.currentDistD = clearD;
 
-        // 4. Update Object Slider
-        // Convert D back to 0-100
+        // Sync UI
         let newSliderVal = 100 - (state.currentDistD * 10);
-        // Clamp
         if (newSliderVal < 0) newSliderVal = 0;
         if (newSliderVal > 100) newSliderVal = 100;
         ui.distSlider.value = newSliderVal;
 
-        updateVisuals();
+        render();
     }
 
-    function updateVisuals() {
-        // Text Updates
-        ui.accDisplay.innerText = state.currentAcc.toFixed(2) + " D";
+    function render() {
+        // --- DATA UPDATE ---
+        ui.accVal.innerText = state.currentAcc.toFixed(2) + " D";
         
-        if (state.currentDistD <= 0.05) ui.distDisplay.innerText = "Infinity";
-        else ui.distDisplay.innerText = (100/state.currentDistD).toFixed(0) + " cm";
+        let distText = "Infinity";
+        if (state.currentDistD > 0.1) {
+            distText = (100 / state.currentDistD).toFixed(0) + " cm";
+        }
+        ui.distVal.innerText = distText;
 
-        // Status Badge
         if (state.isBlurred) {
-            ui.statusTitle.innerText = "BLUR";
-            ui.statusTitle.style.color = "#ef4444";
-            ui.badge.style.borderLeftColor = "#ef4444";
-            
-            // Helpful context
-            if (state.currentAcc >= state.maxAmp) ui.statusDesc.innerText = "Max Amp Reached";
-            else ui.statusDesc.innerText = "Out of Focus";
+            ui.badge.innerText = "BLUR";
+            ui.badge.style.color = "#ef4444";
         } else {
-            ui.statusTitle.innerText = "CLEAR";
-            ui.statusTitle.style.color = "#22c55e";
-            ui.badge.style.borderLeftColor = "#22c55e";
-            ui.statusDesc.innerText = "Image on Retina";
+            ui.badge.innerText = "CLEAR";
+            ui.badge.style.color = "#22c55e";
         }
 
-        draw();
-    }
 
-    // --- DRAWING ENGINE (Tri-Action Visuals) ---
-    function draw() {
-        // 1. Setup Canvas
-        // Handle pixel density for crisp lines
+        // --- DRAWING ---
+        // High DPI Setup
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
@@ -364,173 +319,138 @@
         ctx.clearRect(0, 0, w, h);
 
         const cy = h / 2;
-        const cx = w * 0.75; // Eye Center (Right side)
+        const cx = w - 100; // Eye anchored to Right
         const eyeRadius = 60;
 
-        // --- DRAW ANATOMICAL EYE ---
+        // 1. EYE ANATOMY
         
-        // A. Sclera (White Ball)
+        // Sclera
         ctx.beginPath();
         ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
         ctx.fillStyle = "#fff";
         ctx.fill();
-        ctx.strokeStyle = "#333";
+        ctx.strokeStyle = "#1e293b";
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // B. Cornea (Anterior Bulge)
+        // Cornea (Bump)
         ctx.beginPath();
-        ctx.arc(cx - 55, cy, 25, 1.5, 4.7); // Simple arc bump
-        // Fill cornea area
-        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.arc(cx - 55, cy, 25, 1.5, 4.7);
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
         ctx.fill();
         ctx.stroke();
 
-        // C. Iris (Vertical aperture lines)
+        // Iris
         ctx.beginPath();
-        ctx.moveTo(cx - 50, cy - 25);
-        ctx.lineTo(cx - 50, cy - 15);
-        ctx.moveTo(cx - 50, cy + 25);
-        ctx.lineTo(cx - 50, cy + 15);
-        ctx.strokeStyle = "brown";
+        ctx.moveTo(cx - 50, cy - 25); ctx.lineTo(cx - 50, cy - 12);
+        ctx.moveTo(cx - 50, cy + 25); ctx.lineTo(cx - 50, cy + 12);
+        ctx.strokeStyle = "#854d0e"; // Brown iris
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // D. CRYSTALLINE LENS (Inside the eye)
-        // Logic: Positioned BEHIND iris (x approx cx-40)
-        // Thickness: Base 6px + (Acc * 1.2)
-        // Max thickness visual cap ~25px
-        let lensThick = 6 + (state.currentAcc * 1.5);
-        let lensHeight = 35;
-        let lensX = cx - 40; 
+        // LENS (Dynamic)
+        let lensThick = 5 + (state.currentAcc * 1.5);
+        if(lensThick > 25) lensThick = 25; // Visual Cap
+        let lensX = cx - 40;
 
         ctx.beginPath();
-        ctx.ellipse(lensX, cy, lensThick, lensHeight, 0, 0, Math.PI*2);
-        ctx.fillStyle = "#bae6fd"; // Blue tint
+        ctx.ellipse(lensX, cy, lensThick, 30, 0, 0, Math.PI*2);
+        ctx.fillStyle = "#bfdbfe";
         ctx.fill();
-        ctx.strokeStyle = "#0284c7";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // --- DRAW OBJECT (Apple) ---
+        // 2. OBJECT (Apple)
+        // Map 100 (Infinity) -> x = 20
+        // Map 0 (Close) -> x = cx - 130
+        let sliderNorm = parseFloat(ui.distSlider.value) / 100; // 1 = Far, 0 = Close
         
-        // Map 0-100 slider to Screen X coordinates
-        // 100 (Infinity) -> x = 20
-        // 0 (Close) -> x = cx - 120 (Near point visual limit)
-        let sliderVal = parseFloat(ui.distSlider.value);
-        let normVal = sliderVal / 100; // 0 to 1
-        
-        let startX = cx - 140; 
-        let endX = 30;
-        let objX = startX - (normVal * (startX - endX));
+        let startX = 20;
+        let endX = cx - 140;
+        let objX = endX - (sliderNorm * (endX - startX));
 
-        // Draw Object Apple 🍎
+        // Draw Apple 🍎
         ctx.font = "30px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("🍎", objX, cy);
 
-        // --- DRAW RAYS ---
-        // Path: Object -> Cornea Surface -> Lens Center -> Retina
-        
+        // 3. RAYS (Parallel Start)
         let corneaX = cx - 60;
-        let retinaX = cx + eyeRadius; // Back of eye
-
+        
         ctx.strokeStyle = "orange";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
 
-        // 1. Top Ray
-        ctx.moveTo(objX + 10, cy - 10);
-        ctx.lineTo(corneaX, cy - 15); // Hit Cornea
-        ctx.lineTo(lensX, cy - 20);   // Refract to Lens Top
-        
-        // 2. Bottom Ray
-        ctx.moveTo(objX + 10, cy + 10);
-        ctx.lineTo(corneaX, cy + 15);
-        ctx.lineTo(lensX, cy + 20);
-
-        ctx.stroke();
-
-        // --- DRAW RETINAL IMAGE ---
-        
-        // Rays from Lens to Retina
-        // If Blurred: Rays don't meet at retina
-        // If Clear: Rays meet at retina
-        
-        let focusPointX = retinaX;
-        let imgAlpha = 1.0;
-        
-        if (state.isBlurred) {
-            // Check direction of blur
-            // If Myopia (or Obj too close): Focus is BEFORE retina
-            // If Hyperopia (or Obj too far): Focus is BEHIND retina
-            
-            // Simple visual heuristic:
-            // Needed Acc vs Actual Acc
-            let needed = state.currentDistD + state.refError;
-            if (needed < 0) needed = 0;
-            
-            if (state.currentAcc < needed) {
-                // Undercorrected -> Focus BEHIND retina (Hyperopic blur)
-                focusPointX = retinaX + 40;
-            } else if (state.currentAcc > needed) {
-                // Overcorrected -> Focus BEFORE retina (Myopic blur)
-                focusPointX = retinaX - 30;
-            }
-            imgAlpha = 0.4; // Ghosting effect
-        }
-
-        // Draw Blue Refracted Rays
-        ctx.strokeStyle = "#2563eb";
-        ctx.beginPath();
-        // Top ray to focus
-        ctx.moveTo(lensX, cy - 20);
-        ctx.lineTo(focusPointX, cy + 10); // Inverting
-        // Bottom ray to focus
-        ctx.moveTo(lensX, cy + 20);
-        ctx.lineTo(focusPointX, cy - 10);
-        ctx.stroke();
-
-        // Draw Image Apple 🍏
-        // Positioned ON the retina regardless of focus point (it's the screen)
-        // But if blurred, it looks fuzzy
-        ctx.globalAlpha = imgAlpha;
-        ctx.save();
-        ctx.translate(retinaX, cy);
-        ctx.rotate(Math.PI); // Invert
-        ctx.font = "18px sans-serif";
-        
-        if (state.isBlurred) {
-            // Draw double apple for blur
-            ctx.fillText("🍏", -2, -2);
-            ctx.fillText("🍏", 2, 2);
+        if (state.currentDistD < 0.1) {
+            // Parallel Rays (Infinity)
+            ctx.moveTo(0, cy - 15); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
+            ctx.moveTo(0, cy + 15); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
+            // Draw Infinity Symbol at far left
+            ctx.fillStyle = "#64748b";
+            ctx.font = "20px sans-serif";
+            ctx.fillText("∞", 20, cy - 40);
         } else {
-            ctx.fillText("🍏", 0, 0);
+            // Diverging Rays
+            ctx.moveTo(objX + 10, cy - 10); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
+            ctx.moveTo(objX + 10, cy + 10); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
         }
+        ctx.stroke();
+
+        // 4. RETINAL IMAGE (The 4th Action)
+        let retinaX = cx + eyeRadius; 
         
-        ctx.restore();
-        ctx.globalAlpha = 1.0;
+        // Calculate Focus Point
+        let focusX = retinaX;
+        
+        // Simulating Focus Error
+        // Needed Acc vs Actual Acc
+        let needed = state.currentDistD + state.refError;
+        if (needed < 0) needed = 0;
+        
+        let error = state.currentAcc - needed; 
+        // If error = 0, focus on retina.
+        // If error > 0 (Over accommod), focus In Front (Myopic blur)
+        // If error < 0 (Under accommod), focus Behind (Hyperopic blur)
+        
+        if (Math.abs(error) > 0.25) {
+            // Shift focus point visually
+            focusX = retinaX - (error * 10); // *10 scale factor
+        }
+
+        // Draw Blue Rays to Focus
+        ctx.strokeStyle = "#3b82f6";
+        ctx.beginPath();
+        ctx.moveTo(lensX, cy - 20); ctx.lineTo(focusX, cy + 2);
+        ctx.moveTo(lensX, cy + 20); ctx.lineTo(focusX, cy - 2);
+        ctx.stroke();
+
+        // Draw Retina Image Dot
+        // If blurred, draw fuzzy red circle. If clear, sharp green dot.
+        if (state.isBlurred || Math.abs(error) > 0.25) {
+            ctx.fillStyle = "rgba(239, 68, 68, 0.5)"; // Red fuzzy
+            ctx.beginPath();
+            ctx.arc(retinaX, cy, 6, 0, Math.PI*2);
+            ctx.fill();
+        } else {
+            ctx.fillStyle = "#22c55e"; // Green sharp
+            ctx.beginPath();
+            ctx.arc(retinaX, cy, 2, 0, Math.PI*2); // Tiny dot
+            ctx.fill();
+        }
     }
 
-    // --- EVENTS ---
-    ui.distSlider.addEventListener('input', onObjectMove);
+    // Events
+    ui.distSlider.addEventListener('input', onObjMove);
     ui.accSlider.addEventListener('input', onAccMove);
-    ui.condSelect.addEventListener('change', () => { 
-        updateStateFromInputs(); 
-        onObjectMove(); // Recalculate based on new condition
-    });
-    ui.ageInput.addEventListener('input', () => { 
-        updateStateFromInputs(); 
-        onObjectMove(); 
-    });
-    
-    // Window Resize
-    window.addEventListener('resize', draw);
+    ui.condSelect.addEventListener('change', () => { updatePhysics(); onObjMove(); });
+    ui.ageInput.addEventListener('input', () => { updatePhysics(); onObjMove(); });
+    window.addEventListener('resize', render);
 
-    // Initialize
-    updateStateFromInputs();
-    onObjectMove(); // Start with object based calculation
+    // Init
+    updatePhysics();
+    onObjMove();
 
 </script>
 </body>
