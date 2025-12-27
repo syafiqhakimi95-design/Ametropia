@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cikgu Mata Pro: Master</title>
+    <title>Cikgu Mata Pro: Final</title>
     <style>
         :root {
             --bg: #f1f5f9;
@@ -54,11 +53,12 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            z-index: 10;
         }
 
         .badge {
-            background: rgba(255,255,255,0.9);
-            padding: 5px 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 6px 12px;
             border-radius: 20px;
             border: 1px solid #ccc;
             font-size: 0.75rem;
@@ -81,6 +81,7 @@
             border-radius: 8px;
             border: 1px solid #cbd5e1;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 10;
         }
 
         .tool-btn {
@@ -149,8 +150,8 @@
                 <div id="statusDot" class="dot" style="background:green;"></div>
                 <span id="statusText">Parallel</span>
             </div>
-            <div id="drawStatus" class="badge" style="display:none; color:#dc2626; border-color:#dc2626;">
-                <span>✎ Drawing Active</span>
+            <div id="drawStatus" class="badge" style="display:none; color:#dc2626; border-color:#dc2626; background:#fff5f5;">
+                <span id="drawMsg">✎ Zoom Disabled</span>
             </div>
         </div>
 
@@ -207,7 +208,7 @@
         </div>
 
         <div style="height: 50px;"></div> </div>
-<script>
+        <script>
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -227,7 +228,8 @@
         btnReset: document.getElementById('btnReset'),
         btnClear: document.getElementById('btnClear'),
         colorTray: document.getElementById('colorTray'),
-        drawStatus: document.getElementById('drawStatus')
+        drawStatus: document.getElementById('drawStatus'),
+        drawMsg: document.getElementById('drawMsg')
     };
 
     // --- 1. APPLICATION STATE ---
@@ -256,7 +258,7 @@
         if(safeAge < 5) safeAge = 5;
         if(safeAge > 100) safeAge = 100;
         state.age = safeAge;
-        ui.ageInput.value = safeAge; // Update UI if we clamped it
+        ui.ageInput.value = safeAge; 
 
         let amp = 18.5 - (0.3 * state.age);
         state.maxAmp = Math.max(0, amp);
@@ -304,12 +306,9 @@
     }
 
     // --- 3. INPUT HANDLING (POINTER EVENTS - FIXED PINCH) ---
-    
-    // Cache for tracking multiple fingers (Pinch Zoom)
     let evCache = [];
     let prevDiff = -1;
 
-    // Coordinate conversion
     function getPtrPos(e) {
         const rect = canvas.getBoundingClientRect();
         return {
@@ -327,14 +326,12 @@
         return {x: wx, y: wy};
     }
 
-    // -- POINTER DOWN --
     canvas.addEventListener('pointerdown', (e) => {
-        // Track the pointer
         evCache.push(e);
         canvas.setPointerCapture(e.pointerId);
 
         if (drawing.active) {
-            // If drawing, ignore multi-touch pinch logic, just draw with primary
+            // Draw
             if (evCache.length === 1) {
                 const pos = getPtrPos(e);
                 const worldPos = toWorld(pos.x, pos.y);
@@ -345,14 +342,12 @@
         }
     });
 
-    // -- POINTER MOVE --
     canvas.addEventListener('pointermove', (e) => {
-        // Update the event in the cache
         const index = evCache.findIndex((cachedEv) => cachedEv.pointerId === e.pointerId);
         if (index > -1) evCache[index] = e;
 
         if (drawing.active) {
-            // DRAWING LOGIC (Single finger only)
+            // Drawing
             if (drawing.currentLine && evCache.length === 1) {
                 const pos = getPtrPos(e);
                 const worldPos = toWorld(pos.x, pos.y);
@@ -360,17 +355,15 @@
                 render();
             }
         } else {
-            // CAMERA LOGIC
+            // Camera
             if (evCache.length === 2) {
-                // PINCH ZOOM
+                // Pinch
                 const curDiff = Math.sqrt(
                     Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
                     Math.pow(evCache[1].clientY - evCache[0].clientY, 2)
                 );
-
                 if (prevDiff > 0) {
                     const delta = curDiff - prevDiff;
-                    // Zoom sensitivity
                     const zoomFactor = delta * 0.01;
                     let newScale = camera.scale + zoomFactor;
                     if (newScale > 0.5 && newScale < 5) camera.scale = newScale;
@@ -378,16 +371,9 @@
                 prevDiff = curDiff;
                 render();
             } else if (evCache.length === 1) {
-                // PAN
-                // We need to calculate delta from the last move event of this specific pointer
-                // But simplified: stick to movementX/Y if supported or manual delta
-                let dx = e.movementX;
-                let dy = e.movementY;
-                
-                // Fallback for browsers with no movementX/Y
-                if (dx === undefined) dx = 0; 
-                if (dy === undefined) dy = 0;
-
+                // Pan
+                let dx = e.movementX || 0;
+                let dy = e.movementY || 0;
                 camera.x += dx;
                 camera.y += dy;
                 render();
@@ -395,17 +381,12 @@
         }
     });
 
-    // -- POINTER UP/CANCEL --
-    function remove_event(e) {
+    function pointerUpHandler(e) {
         const index = evCache.findIndex((cachedEv) => cachedEv.pointerId === e.pointerId);
         if (index > -1) evCache.splice(index, 1);
-    }
-
-    function pointerUpHandler(e) {
-        remove_event(e);
         canvas.releasePointerCapture(e.pointerId);
         
-        if (evCache.length < 2) prevDiff = -1; // Reset pinch
+        if (evCache.length < 2) prevDiff = -1;
         if (drawing.active && evCache.length === 0) drawing.currentLine = null;
     }
 
@@ -414,8 +395,6 @@
     canvas.addEventListener('pointerout', pointerUpHandler);
     canvas.addEventListener('pointerleave', pointerUpHandler);
 
-
-    // Simple Wheel Zoom (Mouse)
     canvas.addEventListener('wheel', (e) => {
         if(drawing.active) return;
         e.preventDefault();
@@ -435,6 +414,8 @@
             ui.btnPen.classList.add('active');
             ui.colorTray.style.display = 'flex';
             ui.drawStatus.style.display = 'flex';
+            // UPDATE MESSAGE HERE
+            ui.drawMsg.innerText = "✎ Drawing (Zoom Disabled)";
             canvas.classList.add('drawing');
         } else {
             ui.btnPen.classList.remove('active');
@@ -455,12 +436,8 @@
         render();
     });
 
-    // Presbyopia Helper
     ui.condSelect.addEventListener('change', () => {
-        // Auto-set age to 45 if presbyopia is selected to show effect immediately
-        if (ui.condSelect.value === 'presbyopia') {
-            ui.ageInput.value = 45;
-        }
+        if (ui.condSelect.value === 'presbyopia') ui.ageInput.value = 45;
         updatePhysics();
         onObjectChange();
     });
@@ -476,7 +453,7 @@
 
     // --- 5. RENDER ENGINE ---
     function render() {
-        // Update Stats
+        // UI
         ui.accVal.innerText = state.accEffort.toFixed(1) + " D";
         let dText = state.objectDistD <= 0.1 ? "Infinity" : (100/state.objectDistD).toFixed(0) + " cm";
         ui.distVal.innerText = dText;
@@ -491,7 +468,7 @@
             ui.statusDot.style.background = "#16a34a";
         }
 
-        // Setup Canvas
+        // Setup
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
@@ -500,56 +477,47 @@
         ctx.resetTransform();
         ctx.scale(dpr, dpr);
         
-        // --- START WORLD TRANSFORM ---
+        // World Transform
         const w = rect.width;
         const h = rect.height;
-        
         ctx.save();
         ctx.translate(w/2, h/2);
         ctx.translate(camera.x, camera.y);
         ctx.scale(camera.scale, camera.scale);
 
-        // -- DRAW SCENE (World Coords: 0,0 is center of screen initially) --
-        
-        // Coords
-        const cx = 100; // Shift eye right
-        const cy = 0;
-        const eyeRadius = 60;
+        // Drawing Content
+        const cx = 100; const cy = 0; const eyeRadius = 60;
 
-        // 1. Eye
+        // Eye Parts
         ctx.beginPath(); ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
         ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#334155"; ctx.lineWidth = 2; ctx.stroke();
-
-        // 2. Cornea
+        
         ctx.beginPath(); ctx.arc(cx - 55, cy, 28, 1.4, 4.88);
         ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fill(); ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.stroke();
-
-        // 3. Iris
+        
         ctx.beginPath();
         ctx.moveTo(cx - 50, cy - 40); ctx.lineTo(cx - 50, cy - 15);
         ctx.moveTo(cx - 50, cy + 40); ctx.lineTo(cx - 50, cy + 15);
         ctx.strokeStyle = "#854d0e"; ctx.lineWidth = 5; ctx.stroke();
 
-        // 4. Lens (Posterior + Constrained)
+        // Lens
         let lensX = cx - 35;
         let growth = state.actualAcc * 1.5;
         let lensThick = Math.min(6 + growth, 25);
         ctx.beginPath(); ctx.ellipse(lensX, cy, lensThick, 32, 0, 0, Math.PI*2);
         ctx.fillStyle = "#bae6fd"; ctx.fill(); ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
 
-        // 5. Object
-        // infinity = -300, close = cx - 140
+        // Object
         let slide = parseFloat(ui.distSlider.value) / 100;
         let startX = -400; let endX = cx - 140;
         let objX = endX - (slide * (endX - startX));
-
         if (state.objectDistD < 0.1) {
             ctx.fillStyle = "#334155"; ctx.font = "30px sans-serif"; ctx.fillText("∞", -350, cy + 10);
         } else {
             ctx.beginPath(); ctx.arc(objX, cy, 5, 0, Math.PI*2); ctx.fillStyle = "#000"; ctx.fill();
         }
 
-        // 6. Rays
+        // Rays
         let corneaX = cx - 60;
         ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2 / camera.scale; ctx.beginPath();
         if (state.objectDistD < 0.1) {
@@ -561,7 +529,7 @@
         }
         ctx.stroke();
 
-        // 7. Retina Image
+        // Retina Image
         let retinaX = cx + eyeRadius;
         let needed = state.objectDistD + state.refError;
         if (needed < 0) needed = 0;
@@ -582,7 +550,7 @@
         }
         ctx.fill();
 
-        // 8. ANNOTATIONS (In World Space)
+        // Annotations
         ctx.lineCap = "round"; ctx.lineJoin = "round";
         drawing.lines.forEach(line => {
             ctx.beginPath();
@@ -595,21 +563,15 @@
             ctx.stroke();
         });
 
-        ctx.restore(); // END WORLD TRANSFORM
+        ctx.restore();
     }
 
-    // Init
+    // Start
     ui.distSlider.addEventListener('input', onObjectChange);
     ui.accSlider.addEventListener('input', onAccChange);
-    
-    // Safety check for age input
-    ui.ageInput.addEventListener('change', () => {
-        updatePhysics(); 
-        onObjectChange();
-    });
-
+    // Safety for age
+    ui.ageInput.addEventListener('change', () => { updatePhysics(); onObjectChange(); });
     window.addEventListener('resize', render);
-
     updatePhysics();
     onObjectChange();
 
