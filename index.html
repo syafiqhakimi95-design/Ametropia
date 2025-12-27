@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Eye Sim with Annotation</title>
+    <title>Annotatable Eye Sim</title>
     <style>
         :root {
             --bg: #f8fafc;
-            --card: #ffffff;
             --primary: #2563eb;
             --text: #334155;
-            --danger: #dc2626;
-            --success: #16a34a;
         }
 
         body {
@@ -25,27 +22,24 @@
             overflow: hidden;
         }
 
-        /* --- 1. VISUAL STAGE --- */
+        /* STAGE */
         .stage-container {
             flex: 1;
             position: relative;
             background: #fff;
             border-bottom: 1px solid #cbd5e1;
             overflow: hidden;
-            touch-action: none;
+            touch-action: none; /* Critical for mobile drawing */
         }
 
         canvas {
             display: block;
             width: 100%;
             height: 100%;
-            cursor: grab;
-        }
-        canvas.drawing-cursor {
-            cursor: crosshair;
+            touch-action: none;
         }
 
-        /* OVERLAYS */
+        /* UI OVERLAYS */
         .overlay-ui {
             position: absolute;
             top: 10px;
@@ -53,7 +47,7 @@
             pointer-events: none;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .status-badge {
@@ -66,11 +60,11 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-        /* TOOLBAR (Bottom Right) */
+        /* TOOLBAR */
         .toolbar {
             position: absolute;
             bottom: 15px;
@@ -78,44 +72,47 @@
             display: flex;
             gap: 8px;
             background: rgba(255, 255, 255, 0.95);
-            padding: 6px;
-            border-radius: 8px;
+            padding: 8px;
+            border-radius: 12px;
             border: 1px solid #cbd5e1;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
             pointer-events: auto;
         }
 
         .tool-btn {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border: 1px solid #e2e8f0;
             background: #fff;
-            border-radius: 6px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.2rem;
             cursor: pointer;
             color: #475569;
+            transition: all 0.2s;
         }
+        .tool-btn:active { transform: scale(0.95); }
         .tool-btn.active {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
+            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
         }
 
         /* Color Picker */
         .color-picker {
             display: flex;
             align-items: center;
-            gap: 5px;
-            padding: 0 5px;
+            gap: 8px;
+            padding: 0 8px;
             border-left: 1px solid #e2e8f0;
             margin-left: 5px;
         }
         .color-dot {
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid transparent;
@@ -125,18 +122,17 @@
             transform: scale(1.1);
         }
 
-        /* --- 2. CONTROLS --- */
+        /* CONTROLS AREA */
         .controls-scroll {
             flex: 0 0 auto;
             max-height: 50%;
             overflow-y: auto;
             background: var(--bg);
             padding: 20px;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
         }
 
         .card {
-            background: var(--card);
+            background: #fff;
             padding: 15px;
             border-radius: 12px;
             border: 1px solid #e2e8f0;
@@ -146,14 +142,11 @@
 
         h3 { margin: 0 0 10px 0; font-size: 0.95rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
         
-        .slider-row { display: flex; flex-direction: column; gap: 5px; }
+        input[type=range] { width: 100%; height: 30px; cursor: pointer; accent-color: var(--primary); }
         .slider-labels { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; color: #64748b; }
         
-        input[type=range] { width: 100%; height: 28px; cursor: pointer; accent-color: var(--primary); }
-        select, input[type="number"] { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; background: #fff; }
+        select, input[type="number"] { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size:1rem; }
         select { width: 100%; }
-        
-        .age-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 
     </style>
 </head>
@@ -168,12 +161,13 @@
                 <span id="statusText">Parallel (Infinity)</span>
             </div>
             <div id="drawBadge" class="status-badge" style="display:none; color:#2563eb; border-color:#2563eb;">
-                <span>✎ Draw Mode</span>
+                <span>✎ Drawing Mode Active</span>
             </div>
         </div>
 
         <div class="toolbar">
-            <button class="tool-btn" id="btnReset" title="Reset View">↺</button>
+            <button class="tool-btn" id="btnReset" title="Reset Camera">↺</button>
+            <div style="width:1px; background:#e2e8f0; margin:0 5px;"></div>
             <button class="tool-btn" id="btnPen" title="Annotate">✎</button>
             
             <div class="color-picker" id="colorPicker" style="display:none;">
@@ -188,18 +182,15 @@
     </div>
 
     <div class="controls-scroll">
-
         <div class="card" style="border-left: 4px solid var(--primary);">
             <h3>
-                <span>Lens Power (Accommodation)</span>
+                <span>Lens Power</span>
                 <span id="accVal">0.0 D</span>
             </h3>
-            <div class="slider-row">
-                <input type="range" id="accSlider" min="0" max="15" step="0.1" value="0">
-                <div class="slider-labels">
-                    <span>Relaxed</span>
-                    <span>Max Effort</span>
-                </div>
+            <input type="range" id="accSlider" min="0" max="15" step="0.1" value="0">
+            <div class="slider-labels">
+                <span>Relaxed</span>
+                <span>Max Effort</span>
             </div>
         </div>
 
@@ -211,9 +202,8 @@
                 <option value="hyperopia">Hyperopia (+2.50 D)</option>
                 <option value="presbyopia">Presbyopia (Normal Base)</option>
             </select>
-            
-            <div class="age-row">
-                <label>Patient Age:</label>
+            <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                <label>Age:</label>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <input type="number" id="ageInput" value="20" min="10" max="80" style="width:50px; text-align:center;">
                     <span style="font-size:0.8rem; color:#64748b;">(Max: <span id="maxAmpVal">12.5</span>D)</span>
@@ -228,11 +218,10 @@
             </h3>
             <input type="range" id="distSlider" min="0" max="100" step="0.5" value="100">
             <div class="slider-labels">
-                <span>Close (10cm)</span>
+                <span>Close</span>
                 <span>Infinity</span>
             </div>
         </div>
-
     </div>
 
 <script>
@@ -240,7 +229,7 @@
     const ctx = canvas.getContext('2d');
     const stage = document.getElementById('stage');
 
-    // UI Elements
+    // UI REFS
     const ui = {
         accSlider: document.getElementById('accSlider'),
         distSlider: document.getElementById('distSlider'),
@@ -251,7 +240,6 @@
         maxAmpVal: document.getElementById('maxAmpVal'),
         statusText: document.getElementById('statusText'),
         statusDot: document.getElementById('statusDot'),
-        // Toolbar
         btnPen: document.getElementById('btnPen'),
         btnReset: document.getElementById('btnReset'),
         btnClear: document.getElementById('btnClear'),
@@ -259,32 +247,27 @@
         drawBadge: document.getElementById('drawBadge')
     };
 
-    // State
+    // --- APP STATE ---
     let state = {
-        condition: 'emmetropia',
-        age: 20,
-        maxAmp: 12.5,
-        refError: 0,
-        accEffort: 0, actualAcc: 0, objectDistD: 0,
-        isBlurred: false
+        condition: 'emmetropia', age: 20, maxAmp: 12.5, refError: 0,
+        accEffort: 0, actualAcc: 0, objectDistD: 0, isBlurred: false
     };
 
-    // Camera State
+    // --- CAMERA STATE ---
     let camera = {
         scale: 1, x: 0, y: 0,
         isDragging: false, lastX: 0, lastY: 0, lastDist: 0
     };
 
-    // Annotation State
-    let annotation = {
+    // --- DRAWING STATE ---
+    let drawing = {
         active: false,
         color: '#ef4444',
-        lines: [], // Array of strokes. Each stroke is {color, points: [{x,y},...]}
+        strokes: [], // { color: string, points: {x,y}[] } (World Coordinates)
         currentStroke: null
     };
 
-    // --- LOGIC ---
-
+    // --- OPTICAL LOGIC ---
     function updateLogic() {
         state.condition = ui.condSelect.value;
         state.age = parseInt(ui.ageInput.value);
@@ -299,8 +282,8 @@
 
     function onObjectMove() {
         updateLogic();
-        let sliderVal = parseFloat(ui.distSlider.value);
-        let demand = (100 - sliderVal) / 10;
+        let val = parseFloat(ui.distSlider.value);
+        let demand = (100 - val) / 10;
         state.objectDistD = demand;
         let needed = demand + state.refError;
         if (needed < 0) needed = 0;
@@ -312,15 +295,13 @@
 
     function onAccMove() {
         updateLogic();
-        let effort = parseFloat(ui.accSlider.value);
-        state.accEffort = effort;
+        state.accEffort = parseFloat(ui.accSlider.value);
         let clearD = state.accEffort - state.refError;
         if (clearD < 0) clearD = 0;
         state.objectDistD = clearD;
-        let newSliderVal = 100 - (state.objectDistD * 10);
-        if (newSliderVal < 0) newSliderVal = 0; 
-        if (newSliderVal > 100) newSliderVal = 100;
-        ui.distSlider.value = newSliderVal;
+        let newVal = 100 - (state.objectDistD * 10);
+        if (newVal < 0) newVal = 0; if (newVal > 100) newVal = 100;
+        ui.distSlider.value = newVal;
         checkBlur();
         render();
     }
@@ -335,41 +316,33 @@
         }
     }
 
-    // --- ANNOTATION HANDLERS ---
-    
-    // Toggle Draw Mode
+    // --- DRAWING TOOLS UI ---
     ui.btnPen.addEventListener('click', () => {
-        annotation.active = !annotation.active;
-        if (annotation.active) {
+        drawing.active = !drawing.active;
+        if (drawing.active) {
             ui.btnPen.classList.add('active');
             ui.colorPicker.style.display = 'flex';
             ui.drawBadge.style.display = 'flex';
-            canvas.classList.add('drawing-cursor');
-            // Disable Zoom/Pan logic
         } else {
             ui.btnPen.classList.remove('active');
             ui.colorPicker.style.display = 'none';
             ui.drawBadge.style.display = 'none';
-            canvas.classList.remove('drawing-cursor');
         }
     });
 
-    // Color Selection
     document.querySelectorAll('.color-dot').forEach(dot => {
         dot.addEventListener('click', (e) => {
             document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
             e.target.classList.add('selected');
-            annotation.color = e.target.getAttribute('data-color');
+            drawing.color = e.target.getAttribute('data-color');
         });
     });
 
-    // Clear
     ui.btnClear.addEventListener('click', () => {
-        annotation.lines = [];
+        drawing.strokes = [];
         render();
     });
 
-    // Reset Camera
     ui.btnReset.addEventListener('click', () => {
         camera.scale = 1;
         camera.x = 0;
@@ -377,110 +350,119 @@
         render();
     });
 
-    // --- INPUT HANDLING (TOUCH/MOUSE) ---
-
-    // Unified helper to get coordinates relative to canvas
-    function getPos(e) {
+    // --- INPUT HANDLING (Touch/Mouse) ---
+    
+    // Helper: Convert Screen Pixel to World Coordinate
+    // This allows annotations to stick to the diagram when zooming
+    function screenToWorld(sx, sy) {
+        const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
+        
+        // Canvas center offset
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        
+        // Remove pan and zoom
+        let wx = (sx - rect.left - cx - camera.x) / camera.scale;
+        let wy = (sy - rect.top - cy - camera.y) / camera.scale;
+        
+        return { x: wx, y: wy };
+    }
+
+    const handleStart = (e) => {
+        if (e.target !== canvas) return;
+        
+        // Get Screen Coords
         let cx, cy;
-        if (e.touches && e.touches.length > 0) {
+        if (e.touches) {
             cx = e.touches[0].clientX;
             cy = e.touches[0].clientY;
         } else {
             cx = e.clientX;
             cy = e.clientY;
         }
-        return { x: cx - rect.left, y: cy - rect.top };
-    }
 
-    // START
-    const handleStart = (e) => {
-        if (annotation.active) {
-            // Drawing Start
-            e.preventDefault();
-            const pos = getPos(e);
-            annotation.currentStroke = { color: annotation.color, points: [pos] };
-            annotation.lines.push(annotation.currentStroke);
+        if (drawing.active) {
+            e.preventDefault(); // STOP SCROLLING
+            const pt = screenToWorld(cx, cy);
+            drawing.currentStroke = { color: drawing.color, points: [pt] };
+            drawing.strokes.push(drawing.currentStroke);
+            render();
         } else {
-            // Camera Pan Start
-            if (e.touches && e.touches.length === 1) {
-                camera.isDragging = true;
-                camera.lastX = e.touches[0].clientX;
-                camera.lastY = e.touches[0].clientY;
-            } else if (e.touches && e.touches.length === 2) {
+            // Camera Logic
+            if (e.touches && e.touches.length === 2) {
                 camera.isDragging = false;
                 let dx = e.touches[0].clientX - e.touches[1].clientX;
                 let dy = e.touches[0].clientY - e.touches[1].clientY;
                 camera.lastDist = Math.sqrt(dx*dx + dy*dy);
-            } else if (!e.touches) {
+            } else {
                 camera.isDragging = true;
-                camera.lastX = e.clientX;
-                camera.lastY = e.clientY;
+                camera.lastX = cx;
+                camera.lastY = cy;
             }
         }
     };
 
-    // MOVE
     const handleMove = (e) => {
-        if (annotation.active) {
-            // Drawing Move
-            e.preventDefault();
-            if (annotation.currentStroke) {
-                const pos = getPos(e);
-                annotation.currentStroke.points.push(pos);
+        if (e.target !== canvas) return;
+        e.preventDefault(); // Always block scroll on canvas
+
+        let cx, cy;
+        if (e.touches) {
+            cx = e.touches[0].clientX;
+            cy = e.touches[0].clientY;
+        } else {
+            cx = e.clientX;
+            cy = e.clientY;
+        }
+
+        if (drawing.active) {
+            if (drawing.currentStroke) {
+                const pt = screenToWorld(cx, cy);
+                drawing.currentStroke.points.push(pt);
                 render();
             }
         } else {
-            // Camera Pan/Zoom Move
-            e.preventDefault(); 
-            if (e.touches && e.touches.length === 1 && camera.isDragging) {
-                let dx = e.touches[0].clientX - camera.lastX;
-                let dy = e.touches[0].clientY - camera.lastY;
-                camera.x += dx;
-                camera.y += dy;
-                camera.lastX = e.touches[0].clientX;
-                camera.lastY = e.touches[0].clientY;
-                render();
-            } else if (e.touches && e.touches.length === 2) {
+            // Camera Logic
+            if (e.touches && e.touches.length === 2) {
+                // Pinch
                 let dx = e.touches[0].clientX - e.touches[1].clientX;
                 let dy = e.touches[0].clientY - e.touches[1].clientY;
                 let dist = Math.sqrt(dx*dx + dy*dy);
-                let scaleFactor = dist / camera.lastDist;
-                let newScale = camera.scale * scaleFactor;
+                let factor = dist / camera.lastDist;
+                let newScale = camera.scale * factor;
                 if (newScale > 0.5 && newScale < 5) camera.scale = newScale;
                 camera.lastDist = dist;
                 render();
-            } else if (!e.touches && camera.isDragging) {
-                let dx = e.clientX - camera.lastX;
-                let dy = e.clientY - camera.lastY;
+            } else if (camera.isDragging) {
+                // Pan
+                let dx = cx - camera.lastX;
+                let dy = cy - camera.lastY;
                 camera.x += dx;
                 camera.y += dy;
-                camera.lastX = e.clientX;
-                camera.lastY = e.clientY;
+                camera.lastX = cx;
+                camera.lastY = cy;
                 render();
             }
         }
     };
 
-    // END
-    const handleEnd = (e) => {
-        if (annotation.active) {
-            annotation.currentStroke = null;
-        } else {
-            camera.isDragging = false;
-        }
+    const handleEnd = () => {
+        drawing.currentStroke = null;
+        camera.isDragging = false;
     };
 
-    stage.addEventListener('mousedown', handleStart);
-    stage.addEventListener('mousemove', handleMove);
+    // Attach Listeners
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
-    stage.addEventListener('touchstart', handleStart, {passive: false});
-    stage.addEventListener('touchmove', handleMove, {passive: false});
-    stage.addEventListener('touchend', handleEnd);
+    
+    canvas.addEventListener('touchstart', handleStart, {passive: false});
+    canvas.addEventListener('touchmove', handleMove, {passive: false});
+    window.addEventListener('touchend', handleEnd);
 
-    // Mouse Wheel Zoom
-    stage.addEventListener('wheel', (e) => {
-        if (annotation.active) return; // Disable zoom when drawing
+    canvas.addEventListener('wheel', (e) => {
+        if(drawing.active) return;
         e.preventDefault();
         let delta = e.deltaY > 0 ? -0.1 : 0.1;
         let newScale = camera.scale + delta;
@@ -491,8 +473,7 @@
     }, {passive: false});
 
 
-    // --- RENDER ---
-
+    // --- RENDER ENGINE ---
     function render() {
         // UI
         ui.accVal.innerText = state.accEffort.toFixed(1) + " D";
@@ -509,60 +490,76 @@
             ui.statusDot.style.background = "#16a34a";
         }
 
-        // DRAW
+        // Setup Canvas
         const dpr = window.devicePixelRatio || 1;
-        const w = stage.clientWidth;
-        const h = stage.clientHeight;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
         
         ctx.resetTransform();
         ctx.scale(dpr, dpr);
+        
+        const w = rect.width;
+        const h = rect.height;
 
-        // 1. DRAW SIMULATION SCENE (Zoomable)
-        ctx.save();
+        // Apply Camera Transform
         ctx.translate(w/2, h/2);
         ctx.translate(camera.x, camera.y);
         ctx.scale(camera.scale, camera.scale);
-        ctx.translate(-w/2, -h/2);
 
-        // -- Scene Content --
-        const cy = h / 2;
-        const cx = w - 80; 
+        // --- DRAW DIAGRAM (Centered at 0,0 locally) ---
+        // We will define 0,0 as the center of the eye to make math easier? 
+        // No, let's keep previous coordinate system relative to center of screen
+        // We need to shift drawing back by w/2, h/2 to match previous logic?
+        // Let's just draw relative to 0,0 being center screen
+        
+        // Define coordinates relative to CENTER (0,0)
+        // Eye Center = 0,0
+        // Screen Left = -w/2 / scale...
+        
+        const cx = 150; // Shift eye to the right side
+        const cy = 0; 
         const eyeRadius = 60;
 
-        // Eye Body
+        // 1. Eye Body
         ctx.beginPath(); ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
         ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#334155"; ctx.lineWidth = 2; ctx.stroke();
-        
-        // Cornea
+
+        // 2. Cornea
         ctx.beginPath(); ctx.arc(cx - 55, cy, 28, 1.4, 4.88);
         ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fill(); ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.stroke();
-        
-        // Iris
+
+        // 3. Iris
         ctx.beginPath();
         ctx.moveTo(cx - 50, cy - 40); ctx.lineTo(cx - 50, cy - 15);
         ctx.moveTo(cx - 50, cy + 40); ctx.lineTo(cx - 50, cy + 15);
         ctx.strokeStyle = "#854d0e"; ctx.lineWidth = 5; ctx.stroke();
 
-        // Lens
+        // 4. Lens
         let lensX = cx - 35;
         let growth = state.actualAcc * 1.5;
-        let lensThick = Math.min(6 + growth, 25); 
+        let lensThick = Math.min(6 + growth, 25);
         ctx.beginPath(); ctx.ellipse(lensX, cy, lensThick, 32, 0, 0, Math.PI*2);
         ctx.fillStyle = "#bae6fd"; ctx.fill(); ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
 
-        // Object
+        // 5. Object
+        // Map Slider to world coordinates
+        // slider 100 = Infinity
+        // slider 0 = 10cm from eye
+        // let's visualize infinity as x = -300
+        // close as x = cx - 140
         let sliderNorm = parseFloat(ui.distSlider.value) / 100;
-        let startX = 20; let endX = cx - 140;
+        let startX = -300; 
+        let endX = cx - 140;
         let objX = endX - (sliderNorm * (endX - startX));
+
         if (state.objectDistD < 0.1) {
-            ctx.fillStyle = "#334155"; ctx.font = "30px sans-serif"; ctx.fillText("∞", 20, cy + 10);
+            ctx.fillStyle = "#334155"; ctx.font = "30px sans-serif"; ctx.fillText("∞", -320, cy + 10);
         } else {
             ctx.beginPath(); ctx.arc(objX, cy, 5, 0, Math.PI*2); ctx.fillStyle = "#000"; ctx.fill();
         }
 
-        // Rays
+        // 6. Rays
         let corneaX = cx - 60;
         ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1.5 / camera.scale; ctx.beginPath();
         if (state.objectDistD < 0.1) {
@@ -570,4 +567,4 @@
             ctx.moveTo(-1000, cy + 10); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
         } else {
             ctx.moveTo(objX, cy); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
-            ctx.move
+          
