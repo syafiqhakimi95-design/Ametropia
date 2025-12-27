@@ -3,100 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Optics Simulator Mobile</title>
+    <title>Zoomable Eye Simulator</title>
     <style>
         :root {
-            --bg: #f8fafc; /* Light Gray Background */
+            --bg: #f8fafc;
             --card: #ffffff;
             --primary: #2563eb;
             --text: #334155;
+            --danger: #dc2626;
+            --success: #16a34a;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 0;
-            /* Allow vertical scrolling for the whole page */
-            overflow-y: auto; 
-            overflow-x: hidden;
+            height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden; /* Prevent body scroll, handle inside controls */
         }
 
-        /* --- 1. VISUALIZATION HEADER (Sticky Top) --- */
-        .visual-header {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: var(--bg);
-            padding: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-
-        .visual-box {
-            width: 100%;
-            height: 240px; /* Fixed height for the eye view */
-            background: #fff;
-            border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            display: flex;
+        /* --- 1. ZOOMABLE VISUAL STAGE --- */
+        .stage-container {
+            flex: 1; /* Takes top half */
             position: relative;
+            background: #fff;
+            border-bottom: 1px solid #cbd5e1;
             overflow: hidden;
+            touch-action: none; /* KEY: Disable browser zoom/scroll here */
         }
 
         canvas {
-            flex: 1;
             display: block;
-        }
-
-        /* The Vertical Slider (Lens Power) */
-        .lens-control {
-            width: 50px;
-            border-left: 1px solid #e2e8f0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 0;
-            background: #f1f5f9;
-        }
-
-        /* Touch-action: none prevents page scrolling while sliding */
-        input[type=range][orient=vertical] {
-            writing-mode: bt-lr; 
-            -webkit-appearance: slider-vertical;
-            width: 20px;
+            width: 100%;
             height: 100%;
-            touch-action: none; 
+            cursor: move; /* Indicates pannable */
         }
 
-        /* Status Badge inside the canvas */
-        .status-badge {
+        .overlay-ui {
             position: absolute;
             top: 10px;
             left: 10px;
+            pointer-events: none; /* Let touches pass through */
+        }
+
+        .status-badge {
             background: rgba(255, 255, 255, 0.95);
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 20px;
             border: 1px solid #cbd5e1;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 700;
-            pointer-events: none;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        .dot-indicator { width: 8px; height: 8px; border-radius: 50%; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-        /* --- 2. CONTROLS SECTION (Scrollable) --- */
-        .controls-container {
+        .reset-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            pointer-events: auto; /* Clickable */
+            cursor: pointer;
+        }
+
+        /* --- 2. SCROLLABLE CONTROLS AREA --- */
+        .controls-scroll {
+            flex: 0 0 auto; /* Don't shrink */
+            max-height: 55%; /* Occupy bottom half */
+            overflow-y: auto;
+            background: var(--bg);
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            padding-bottom: 50px; /* Space for bottom scroll */
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
         }
 
         .card {
@@ -104,118 +94,111 @@
             padding: 15px;
             border-radius: 12px;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
         }
 
-        h3 { margin: 0 0 10px 0; font-size: 1rem; color: var(--primary); }
-
-        .row {
+        /* Headers */
+        h3 { margin: 0 0 10px 0; font-size: 0.95rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Sliders */
+        .slider-row {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
+            flex-direction: column;
+            gap: 5px;
         }
-
-        select {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-            font-size: 1rem;
-            background: #fff;
-        }
-
-        input[type="number"] {
-            width: 60px;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-            text-align: center;
-            font-size: 1rem;
-            font-weight: bold;
-        }
-
-        /* Horizontal Slider styling */
-        .slider-label {
+        .slider-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            margin-bottom: 8px;
+            color: #64748b;
         }
         
-        input[type=range].h-slider {
+        input[type=range] {
             width: 100%;
-            height: 25px; /* Larger touch target */
-            touch-action: none; /* KEY: Prevents scroll when dragging */
+            height: 28px; /* Touch friendly */
+            cursor: pointer;
+            accent-color: var(--primary);
         }
 
-        .readout {
-            font-family: monospace;
-            color: var(--primary);
+        /* Select & Inputs */
+        select, input[type="number"] {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: #fff;
         }
-
+        select { width: 100%; }
+        
+        .age-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="visual-header">
-        <div class="visual-box">
-            <canvas id="simCanvas"></canvas>
-            
-            <div class="lens-control">
-                <span style="font-size:0.6rem; font-weight:bold; margin-bottom:5px;">LENS</span>
-                <input type="range" id="accSlider" orient="vertical" min="0" max="15" step="0.1" value="0">
-                <span id="accVal" style="font-size:0.65rem; font-weight:bold; margin-top:5px;">0.0D</span>
-            </div>
-
+    <div class="stage-container" id="stage">
+        <canvas id="simCanvas"></canvas>
+        
+        <div class="overlay-ui">
             <div class="status-badge">
-                <div id="statusDot" class="dot-indicator" style="background:green;"></div>
+                <div id="statusDot" class="dot" style="background:green;"></div>
                 <span id="statusText">Parallel (Infinity)</span>
             </div>
         </div>
+
+        <button class="reset-btn" onclick="resetCamera()">Reset View</button>
     </div>
 
-    <div class="controls-container">
-        
+    <div class="controls-scroll">
+
+        <div class="card" style="border-left: 4px solid var(--primary);">
+            <h3>
+                <span>Lens Power (Accommodation)</span>
+                <span id="accVal">0.0 D</span>
+            </h3>
+            <div class="slider-row">
+                <input type="range" id="accSlider" min="0" max="15" step="0.1" value="0">
+                <div class="slider-labels">
+                    <span>Relaxed</span>
+                    <span>Max Effort</span>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
-            <h3>1. Eye Condition</h3>
+            <h3>Eye Settings</h3>
             <select id="conditionSelect">
                 <option value="emmetropia">Emmetropia (Normal)</option>
                 <option value="myopia">Myopia (-2.50 D)</option>
                 <option value="hyperopia">Hyperopia (+2.50 D)</option>
-                <option value="presbyopia">Presbyopia (Emmetropia Base)</option>
+                <option value="presbyopia">Presbyopia (Normal Base)</option>
             </select>
             
-            <div class="row" style="margin-top:15px; justify-content:space-between;">
+            <div class="age-row">
                 <label>Patient Age:</label>
-                <input type="number" id="ageInput" value="20" min="10" max="80">
-            </div>
-            <div style="font-size:0.8rem; color:#64748b; margin-top:5px;">
-                Max Accommodation: <span id="maxAmpVal" class="readout">12.50 D</span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="number" id="ageInput" value="20" min="10" max="80" style="width:50px; text-align:center;">
+                    <span style="font-size:0.8rem; color:#64748b;">(Max: <span id="maxAmpVal">12.5</span>D)</span>
+                </div>
             </div>
         </div>
 
         <div class="card">
-            <h3>2. Move Object (Point) ⚫</h3>
-            <div class="slider-label">
-                <span>Distance</span>
-                <span id="distVal" class="readout">Infinity</span>
+            <h3>
+                <span>Object Distance ⚫</span>
+                <span id="distVal">Infinity</span>
+            </h3>
+            <input type="range" id="distSlider" min="0" max="100" step="0.5" value="100">
+            <div class="slider-labels">
+                <span>Close (10cm)</span>
+                <span>Infinity</span>
             </div>
-            <input type="range" id="distSlider" class="h-slider" min="0" max="100" step="0.5" value="100">
-            <p style="font-size:0.8rem; color:#64748b; margin-top:8px;">
-                Drag left to move object closer.
-            </p>
-        </div>
-
-        <div style="font-size:0.85rem; color:#666; padding: 0 5px;">
-            <p><strong>Instructions:</strong></p>
-            <ul>
-                <li><strong>Vertical Slider:</strong> Controls the lens power manually.</li>
-                <li><strong>Horizontal Slider:</strong> Moves the object.</li>
-                <li>Watch the lens thicken inside the eye!</li>
-                <li>If the Dot on the retina turns <strong>RED</strong>, the image is blurred.</li>
-            </ul>
         </div>
 
     </div>
@@ -223,8 +206,9 @@
 <script>
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
+    const stage = document.getElementById('stage');
 
-    // UI Refs
+    // UI Elements
     const ui = {
         accSlider: document.getElementById('accSlider'),
         distSlider: document.getElementById('distSlider'),
@@ -237,78 +221,80 @@
         statusDot: document.getElementById('statusDot')
     };
 
-    // Physics State
+    // State
     let state = {
         condition: 'emmetropia',
         age: 20,
         maxAmp: 12.5,
         refError: 0,
         
-        accEffort: 0,    // Slider value (User intent)
-        actualAcc: 0,    // Actual lens power (Limited by maxAmp)
-        objectDistD: 0,  // Diopters (0=Infinity)
+        accEffort: 0,    
+        actualAcc: 0,    
+        objectDistD: 0,
         
-        isBlurred: false,
-        blurReason: ''
+        isBlurred: false
     };
 
-    // --- LOGIC ENGINE ---
+    // --- CAMERA / ZOOM STATE ---
+    let camera = {
+        scale: 1,
+        x: 0,
+        y: 0,
+        isDragging: false,
+        lastX: 0,
+        lastY: 0,
+        lastDist: 0
+    };
+
+    // --- LOGIC ---
 
     function updateLogic() {
         state.condition = ui.condSelect.value;
         state.age = parseInt(ui.ageInput.value);
 
-        // 1. Hofstetter's Rule
+        // Hofstetter
         let amp = 18.5 - (0.3 * state.age);
         state.maxAmp = Math.max(0, amp);
-        ui.maxAmpVal.innerText = state.maxAmp.toFixed(2) + " D";
+        ui.maxAmpVal.innerText = state.maxAmp.toFixed(1);
 
-        // 2. Refractive Error Setup
+        // Refractive Error
         if (state.condition === 'emmetropia' || state.condition === 'presbyopia') state.refError = 0;
-        if (state.condition === 'myopia') state.refError = -2.50; // Needs -2.50 to see far
-        if (state.condition === 'hyperopia') state.refError = 2.50; // Needs +2.50 to see far
+        if (state.condition === 'myopia') state.refError = -2.50; 
+        if (state.condition === 'hyperopia') state.refError = 2.50; 
     }
 
-    // HANDLER: Object Slider Moved
+    // Object Moved
     function onObjectMove() {
         updateLogic();
-        
-        // Map Slider 100->0 to Diopters 0->10
         let sliderVal = parseFloat(ui.distSlider.value);
         let demand = (100 - sliderVal) / 10;
         state.objectDistD = demand;
 
-        // Calculate Needed Accommodation
-        // Formula: Needed = Demand + RefError
         let needed = demand + state.refError;
-        if (needed < 0) needed = 0; // Lens can't be negative
+        if (needed < 0) needed = 0;
 
-        // Update Slider to show "Auto" movement
+        // Auto-move Acc Slider
         ui.accSlider.value = needed;
         state.accEffort = needed;
         
-        // Check Limits
         checkBlur();
         render();
     }
 
-    // HANDLER: Acc Slider Moved
+    // Lens Moved
     function onAccMove() {
         updateLogic();
-
         let effort = parseFloat(ui.accSlider.value);
         state.accEffort = effort;
 
-        // Calculate where the object should be
-        // Distance = Effort - RefError
+        // Calc Distance
         let clearD = state.accEffort - state.refError;
-        if (clearD < 0) clearD = 0; // Virtual far point
-
+        if (clearD < 0) clearD = 0;
         state.objectDistD = clearD;
 
-        // Move Object Slider
+        // Auto-move Object Slider
         let newSliderVal = 100 - (state.objectDistD * 10);
-        if (newSliderVal < 0) newSliderVal = 0;
+        if (newSliderVal < 0) newSliderVal = 0; 
         if (newSliderVal > 100) newSliderVal = 100;
         ui.distSlider.value = newSliderVal;
 
@@ -317,184 +303,246 @@
     }
 
     function checkBlur() {
-        // Physical Lens Limit
         if (state.accEffort > state.maxAmp) {
-            state.actualAcc = state.maxAmp; // Lens stops thickening
+            state.actualAcc = state.maxAmp;
             state.isBlurred = true;
-            state.blurReason = "Max Amp Exceeded";
         } else {
             state.actualAcc = state.accEffort;
             state.isBlurred = false;
-            state.blurReason = "";
         }
     }
 
-    // --- RENDER ENGINE ---
+    // --- ZOOM & PAN LOGIC ---
+
+    function resetCamera() {
+        camera.scale = 1;
+        camera.x = 0;
+        camera.y = 0;
+        render();
+    }
+
+    // Touch Handling (Pinch/Pan)
+    stage.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            camera.isDragging = true;
+            camera.lastX = e.touches[0].clientX;
+            camera.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            camera.isDragging = false;
+            // Calculate initial pinch distance
+            let dx = e.touches[0].clientX - e.touches[1].clientX;
+            let dy = e.touches[0].clientY - e.touches[1].clientY;
+            camera.lastDist = Math.sqrt(dx*dx + dy*dy);
+        }
+    }, {passive: false});
+
+    stage.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // Stop page scroll
+        
+        if (e.touches.length === 1 && camera.isDragging) {
+            // Pan
+            let dx = e.touches[0].clientX - camera.lastX;
+            let dy = e.touches[0].clientY - camera.lastY;
+            camera.x += dx;
+            camera.y += dy;
+            camera.lastX = e.touches[0].clientX;
+            camera.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            // Pinch Zoom
+            let dx = e.touches[0].clientX - e.touches[1].clientX;
+            let dy = e.touches[0].clientY - e.touches[1].clientY;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            
+            let scaleFactor = dist / camera.lastDist;
+            let newScale = camera.scale * scaleFactor;
+            
+            // Limit zoom
+            if (newScale > 0.5 && newScale < 5) {
+                camera.scale = newScale;
+            }
+            camera.lastDist = dist;
+        }
+        render();
+    }, {passive: false});
+
+    stage.addEventListener('touchend', () => {
+        camera.isDragging = false;
+    });
+
+    // Mouse Handling (Wheel Zoom + Drag)
+    stage.addEventListener('mousedown', (e) => {
+        camera.isDragging = true;
+        camera.lastX = e.clientX;
+        camera.lastY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => camera.isDragging = false);
+    
+    stage.addEventListener('mousemove', (e) => {
+        if (camera.isDragging) {
+            let dx = e.clientX - camera.lastX;
+            let dy = e.clientY - camera.lastY;
+            camera.x += dx;
+            camera.y += dy;
+            camera.lastX = e.clientX;
+            camera.lastY = e.clientY;
+            render();
+        }
+    });
+
+    stage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        let zoomIntensity = 0.1;
+        let delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
+        let newScale = camera.scale + delta;
+        if (newScale > 0.5 && newScale < 5) {
+            camera.scale = newScale;
+            render();
+        }
+    }, {passive: false});
+
+
+    // --- RENDER ---
 
     function render() {
-        // Update Text
-        ui.accVal.innerText = state.accEffort.toFixed(1) + "D";
-        
-        let distCm = state.objectDistD <= 0.1 ? "Infinity" : (100/state.objectDistD).toFixed(0) + " cm";
-        ui.distVal.innerText = distCm;
+        // UI Updates
+        ui.accVal.innerText = state.accEffort.toFixed(1) + " D";
+        let distText = state.objectDistD <= 0.1 ? "Infinity" : (100/state.objectDistD).toFixed(0) + " cm";
+        ui.distVal.innerText = distText;
 
         if (state.isBlurred) {
-            ui.statusText.innerText = "BLUR (" + distCm + ")";
+            ui.statusText.innerText = "Blur (" + distText + ")";
             ui.statusText.style.color = "#dc2626";
             ui.statusDot.style.background = "#dc2626";
         } else {
-            ui.statusText.innerText = "CLEAR (" + distCm + ")";
+            ui.statusText.innerText = "Parallel/Clear (" + distText + ")";
             ui.statusText.style.color = "#16a34a";
             ui.statusDot.style.background = "#16a34a";
         }
 
-        // DRAWING
+        // DRAW
         const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        
+        // Apply Camera Transforms
+        ctx.resetTransform(); // Clear previous
         ctx.scale(dpr, dpr);
-        const w = rect.width;
-        const h = rect.height;
+        
+        // Center the camera logic
+        ctx.translate(w/2, h/2);
+        ctx.translate(camera.x, camera.y);
+        ctx.scale(camera.scale, camera.scale);
+        ctx.translate(-w/2, -h/2);
 
-        ctx.clearRect(0, 0, w, h);
-
+        // Drawing Coordinates
         const cy = h / 2;
-        const cx = w - 80; // Eye Anchor (Right side)
+        const cx = w - 80; 
         const eyeRadius = 60;
 
-        // 1. EYE BODY (Sclera)
+        // 1. Eye Body
         ctx.beginPath();
         ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#fff";
         ctx.fill();
         ctx.strokeStyle = "#334155";
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 2. CORNEA (Anterior)
+        // 2. Cornea
         ctx.beginPath();
-        ctx.arc(cx - 55, cy, 28, 1.4, 4.88); 
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.arc(cx - 55, cy, 28, 1.4, 4.88);
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
         ctx.fill();
         ctx.strokeStyle = "#94a3b8";
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // 3. IRIS (Aperture)
-        // Positioned at cx - 50
+        // 3. Iris
         ctx.beginPath();
-        // Top Iris
-        ctx.moveTo(cx - 50, cy - 40); 
-        ctx.lineTo(cx - 50, cy - 15);
-        // Bottom Iris
-        ctx.moveTo(cx - 50, cy + 40); 
-        ctx.lineTo(cx - 50, cy + 15);
-        ctx.strokeStyle = "#854d0e"; // Brown
+        ctx.moveTo(cx - 50, cy - 40); ctx.lineTo(cx - 50, cy - 15);
+        ctx.moveTo(cx - 50, cy + 40); ctx.lineTo(cx - 50, cy + 15);
+        ctx.strokeStyle = "#854d0e";
         ctx.lineWidth = 5;
         ctx.stroke();
 
-        // 4. LENS (Posterior & Dynamic)
-        // Previous x was cx-40. Moving Posterior -> cx - 35
-        let lensX = cx - 35; 
-        
-        // Thickness Logic:
-        // Base thickness = 6px
-        // Growth = ActualAcc * 1.5
-        // Visual Cap to prevent overlapping iris
+        // 4. Lens (Posterior + Constrained)
+        let lensX = cx - 35;
+        // Growth logic: 6px base + (1.5 * Acc). Cap at 25px total.
         let growth = state.actualAcc * 1.5;
-        let lensThick = 6 + growth;
-        
-        // Cap visual thickness so it doesn't look broken at high acc
-        if (lensThick > 24) lensThick = 24; 
+        let lensThick = Math.min(6 + growth, 25); 
 
         ctx.beginPath();
         ctx.ellipse(lensX, cy, lensThick, 32, 0, 0, Math.PI*2);
-        ctx.fillStyle = "#bae6fd"; // Light Blue
+        ctx.fillStyle = "#bae6fd";
         ctx.fill();
-        ctx.strokeStyle = "#3b82f6"; // Blue Outline
+        ctx.strokeStyle = "#3b82f6";
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 5. OBJECT (Black Point)
-        let sliderNorm = parseFloat(ui.distSlider.value) / 100; // 1=Far, 0=Close
+        // 5. Object (Dot)
+        let sliderNorm = parseFloat(ui.distSlider.value) / 100;
         let startX = 20;
-        let endX = cx - 130;
+        let endX = cx - 140;
         let objX = endX - (sliderNorm * (endX - startX));
 
         if (state.objectDistD < 0.1) {
-            // Infinity Symbol
             ctx.fillStyle = "#334155";
-            ctx.font = "24px sans-serif";
-            ctx.fillText("∞", 20, cy + 8);
+            ctx.font = "30px sans-serif";
+            ctx.fillText("∞", 20, cy + 10);
         } else {
-            // Draw Point
             ctx.beginPath();
             ctx.arc(objX, cy, 5, 0, Math.PI*2);
             ctx.fillStyle = "#000";
             ctx.fill();
         }
 
-        // 6. RAYS
+        // 6. Rays
         let corneaX = cx - 60;
-        ctx.strokeStyle = "#f59e0b"; // Amber/Orange rays
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5 / camera.scale; // Keep lines thin on zoom
         ctx.beginPath();
 
         if (state.objectDistD < 0.1) {
-            // Parallel
-            ctx.moveTo(0, cy - 10); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
-            ctx.moveTo(0, cy + 10); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
+            ctx.moveTo(-1000, cy - 10); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
+            ctx.moveTo(-1000, cy + 10); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
         } else {
-            // Diverging
             ctx.moveTo(objX, cy); ctx.lineTo(corneaX, cy - 15); ctx.lineTo(lensX, cy - 20);
             ctx.moveTo(objX, cy); ctx.lineTo(corneaX, cy + 15); ctx.lineTo(lensX, cy + 20);
         }
         ctx.stroke();
 
-        // 7. RETINAL IMAGE
+        // 7. Retina Image
         let retinaX = cx + eyeRadius;
-        
-        // Calculate Focus Point
-        let focusX = retinaX;
-        
-        // Error = ActualAcc - Needed
-        // Needed = DistD + RefError
-        let needed = state.objectDistD + state.refError; 
+        let needed = state.objectDistD + state.refError;
         if (needed < 0) needed = 0;
         
-        let error = state.actualAcc - needed; 
-        
-        // Visualizing Blur
-        if (Math.abs(error) > 0.2) {
-            // Shift focus point
-            // Positive Error (Over Acc) -> Front of retina
-            // Negative Error (Under Acc) -> Behind retina
-            focusX = retinaX - (error * 8); 
-        }
+        let error = state.actualAcc - needed;
+        let focusX = retinaX;
+        if (Math.abs(error) > 0.2) focusX = retinaX - (error * 8);
 
-        // Blue Refracted Rays
+        // Blue rays to focus
         ctx.strokeStyle = "#3b82f6";
         ctx.beginPath();
         ctx.moveTo(lensX, cy - 20); ctx.lineTo(focusX, cy);
         ctx.moveTo(lensX, cy + 20); ctx.lineTo(focusX, cy);
         ctx.stroke();
 
-        // Image Dot on Retina
+        // Dot
         ctx.beginPath();
         if (state.isBlurred || Math.abs(error) > 0.25) {
-            // Red Blur Circle
             ctx.fillStyle = "rgba(220, 38, 38, 0.6)";
             ctx.arc(retinaX, cy, 6, 0, Math.PI*2);
         } else {
-            // Green Sharp Point
             ctx.fillStyle = "#16a34a";
             ctx.arc(retinaX, cy, 3, 0, Math.PI*2);
         }
         ctx.fill();
     }
 
-    // Initialize
+    // Init
     ui.distSlider.addEventListener('input', onObjectMove);
     ui.accSlider.addEventListener('input', onAccMove);
     ui.condSelect.addEventListener('change', () => { updateLogic(); onObjectMove(); });
@@ -507,5 +555,4 @@
 </script>
 </body>
 </html>
-
 
