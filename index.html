@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cikgu Mata Pro: Corrected</title>
+    <title>Cikgu Mata Pro: Final Edition</title>
     <style>
         :root {
             --bg: #f1f5f9;
@@ -11,6 +11,7 @@
             --text: #0f172a;
         }
 
+        /* 1. GLOBAL LAYOUT */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
@@ -22,7 +23,7 @@
             overflow: hidden; 
         }
 
-        /* --- STAGE AREA --- */
+        /* 2. STAGE AREA */
         .stage-container {
             flex: 1; 
             position: relative;
@@ -41,7 +42,7 @@
         }
         canvas.drawing { cursor: crosshair; }
 
-        /* --- UI OVERLAYS --- */
+        /* 3. OVERLAYS */
         .overlay-top-left {
             position: absolute;
             top: 10px; left: 10px;
@@ -66,7 +67,6 @@
         }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-        /* --- TOOLBAR --- */
         .toolbar {
             position: absolute;
             bottom: 10px; right: 10px;
@@ -105,7 +105,7 @@
         }
         .color-dot.selected { border-color: #333; transform: scale(1.1); }
 
-        /* --- CONTROLS --- */
+        /* 4. CONTROLS AREA */
         .controls-area {
             flex: 0 0 auto;
             max-height: 45%;
@@ -167,7 +167,7 @@
         
         <div class="card" style="border-left: 4px solid var(--primary);">
             <h3>
-                <span>Lens Power</span>
+                <span>Lens Power (Accommodation)</span>
                 <span id="accVal">0.0 D</span>
             </h3>
             <input type="range" id="accSlider" min="0" max="15" step="0.1" value="0">
@@ -201,7 +201,8 @@
 
         <div style="height: 50px;"></div> 
     </div>
-    <script>
+
+<script>
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -240,11 +241,10 @@
     let camera = { scale: 1, x: 0, y: 0 };
     let drawing = { active: false, color: '#ef4444', lines: [], currentLine: null };
 
-    // --- 2. OPTICAL LOGIC (CORRECTED) ---
+    // --- 2. OPTICAL LOGIC ---
     function updatePhysics() {
         state.condition = ui.condSelect.value;
         
-        // Age Logic
         let safeAge = parseInt(ui.ageInput.value) || 20;
         if(safeAge < 5) safeAge = 5; if(safeAge > 100) safeAge = 100;
         state.age = safeAge;
@@ -255,22 +255,11 @@
         state.maxAmp = Math.max(0, amp);
         ui.maxAmpVal.innerText = state.maxAmp.toFixed(1);
 
-        // Refractive Error Logic
-        // Myopia: Eye is too strong (+). Needs (-) correction.
-        // We define refError as the "Excess Power" of the eye.
+        // Refractive Error Logic (+ excess for Myopia, - deficiency for Hyperopia)
         if (state.condition === 'emmetropia') state.refError = 0;
-        if (state.condition === 'myopia') state.refError = 2.50;  // Eye has +2.50 excess
-        if (state.condition === 'hyperopia') state.refError = -2.50; // Eye has -2.50 deficiency
+        if (state.condition === 'myopia') state.refError = 2.50;  
+        if (state.condition === 'hyperopia') state.refError = -2.50; 
     }
-
-    // Logic: Power Required = ObjectDistD
-    // Eye Power Available = (Base + RefError) + Acc
-    // Focus Error = Eye Power Available - (Base + Power Required)
-    // Focus Error = (RefError + Acc) - ObjectDistD
-    
-    // If Focus Error == 0 -> Clear
-    // If Focus Error > 0 -> Focused in front (Myopic Blur)
-    // If Focus Error < 0 -> Focused behind (Hyperopic Blur)
 
     function onObjectChange() {
         updatePhysics();
@@ -278,63 +267,72 @@
         let demand = (100 - val) / 10; // 0D to 10D
         state.objectDistD = demand;
 
-        // Auto-Adjust Accommodation Logic:
-        // We want (RefError + Acc) - Demand = 0
-        // So Acc = Demand - RefError
-        
+        // Needed Acc = Demand - RefError
         let needed = demand - state.refError;
         
-        // Clamp: Lens cannot relax below 0 (Minimum)
+        // Clamp Min: Lens cannot relax below 0
         if (needed < 0) needed = 0;
+
+        // --- KEY FIX: Clamp Max for Presbyopia Teaching ---
+        // If needed > maxAmp, we cap the slider to visually show the limit.
+        // This prevents the slider from going into the "impossible" zone.
+        let clampedAcc = needed;
+        if (clampedAcc > state.maxAmp) {
+            clampedAcc = state.maxAmp;
+        }
         
-        ui.accSlider.value = needed;
-        state.accEffort = needed;
+        ui.accSlider.value = clampedAcc;
+        state.accEffort = clampedAcc;
+        state.actualAcc = clampedAcc; // Physical lens matches effort (since we clamped it)
         
-        checkBlur();
+        checkBlur(needed); // Check if the *original* needed was higher
         render();
     }
 
     function onAccChange() {
         updatePhysics();
-        state.accEffort = parseFloat(ui.accSlider.value);
+        let inputAcc = parseFloat(ui.accSlider.value);
+
+        // Enforce Max Amp Limit on manual slider movement too
+        if (inputAcc > state.maxAmp) {
+            inputAcc = state.maxAmp;
+            ui.accSlider.value = inputAcc;
+        }
+
+        state.accEffort = inputAcc;
+        state.actualAcc = inputAcc;
         
-        // Auto-Adjust Object Logic:
         // Demand = Acc + RefError
         let clearD = state.accEffort + state.refError;
         
-        // If clearD < 0 (Hyperope relaxed looking "beyond infinity"), clamp to Infinity
         if (clearD < 0) clearD = 0;
-        
         state.objectDistD = clearD;
         
-        // Update slider UI
+        // Update Object Slider
         let newVal = 100 - (state.objectDistD * 10);
         if (newVal < 0) newVal = 0; if (newVal > 100) newVal = 100;
         ui.distSlider.value = newVal;
         
-        checkBlur();
+        checkBlur(state.accEffort); // Needed matches effort here by definition
         render();
     }
 
-    function checkBlur() {
+    function checkBlur(originalNeeded) {
         state.blurReason = '';
         state.isBlurred = false;
 
-        // 1. Cap Effort at Max Amp
-        if (state.accEffort > state.maxAmp) {
-            state.actualAcc = state.maxAmp; // Lens stops thickening
-            // But if we need more than max, it's blur
+        // 1. Presbyopia / Insufficient Amplitude Check
+        // If the calculated 'needed' accommodation (before clamping) was higher than maxAmp
+        if (originalNeeded !== undefined && originalNeeded > state.maxAmp) {
             state.isBlurred = true;
             state.blurReason = 'Near Limit';
-        } else {
-            state.actualAcc = state.accEffort;
+            return; // Exit early as this is the dominant blur factor
         }
 
-        // 2. Calculate Optical Focus Error
+        // 2. Optical Focus Check
         // Error = (RefError + ActualAcc) - Demand
         let error = (state.refError + state.actualAcc) - state.objectDistD;
 
-        // Tolerance of +/- 0.20D
         if (Math.abs(error) > 0.20) {
             state.isBlurred = true;
             if (error > 0) state.blurReason = "Front Focus"; // Myopic
@@ -389,6 +387,7 @@
     canvas.addEventListener('wheel', (e) => { if(drawing.active)return; e.preventDefault(); 
         let s = camera.scale + (e.deltaY > 0 ? -0.1 : 0.1); if(s>0.5 && s<5) { camera.scale=s; render(); } }, {passive:false});
 
+    // Tools
     ui.btnPen.addEventListener('click', () => {
         drawing.active = !drawing.active;
         if(drawing.active) {
@@ -412,7 +411,7 @@
 
     // --- 4. RENDER ---
     function render() {
-        ui.accVal.innerText = state.accEffort.toFixed(1) + " D";
+        ui.accVal.innerText = state.actualAcc.toFixed(1) + " D";
         let dText = state.objectDistD <= 0.1 ? "Infinity" : (100/state.objectDistD).toFixed(0) + " cm";
         ui.distVal.innerText = dText;
         
@@ -436,16 +435,18 @@
         // 1. Eye Body
         ctx.beginPath(); ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
         ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#334155"; ctx.lineWidth = 2; ctx.stroke();
-        // Cornea
+        
+        // 2. Cornea
         ctx.beginPath(); ctx.arc(cx - 55, cy, 28, 1.4, 4.88);
         ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fill(); ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.stroke();
-        // Iris
+        
+        // 3. Iris
         ctx.beginPath();
         ctx.moveTo(cx - 50, cy - 40); ctx.lineTo(cx - 50, cy - 15);
         ctx.moveTo(cx - 50, cy + 40); ctx.lineTo(cx - 50, cy + 15);
         ctx.strokeStyle = "#854d0e"; ctx.lineWidth = 5; ctx.stroke();
 
-        // 4. Lens (SLIMMER VERSION)
+        // 4. Lens (SLIM & CLAMPED)
         // Growth factor 0.7, Max 16px to ensure it NEVER touches iris
         let lensX = cx - 35;
         let growth = state.actualAcc * 0.7; 
@@ -475,15 +476,13 @@
         }
         ctx.stroke();
 
-        // 7. Retina Image & Focus Logic
+        // 7. Retina Image & Focus
         let retinaX = cx + eyeRadius;
         
-        // Calculate Error
         // Error = (RefError + Acc) - Demand
         let error = (state.refError + state.actualAcc) - state.objectDistD;
         
         let focusX = retinaX;
-        // Shift focus point: +Error = Front of Retina, -Error = Behind Retina
         if (Math.abs(error) > 0.2) focusX = retinaX - (error * 8);
 
         ctx.strokeStyle = "#3b82f6"; ctx.beginPath();
@@ -503,7 +502,11 @@
         ctx.lineCap = "round"; ctx.lineJoin = "round";
         drawing.lines.forEach(l => {
             ctx.beginPath(); ctx.strokeStyle = l.color; ctx.lineWidth = 3 / camera.scale;
-            if (l.points.length > 0) { ctx.moveTo(l.points[0].x, l.points[0].y); for(let i=1; i<l.points.length; i++) ctx.lineTo(l.points[i].x, l.points[i].y); }
+            if (l.points.length > 0) 
+                       { 
+                ctx.moveTo(l.points[0].x, l.points[0].y); 
+                for(let i=1; i<l.points.length; i++) ctx.lineTo(l.points[i].x, l.points[i].y); 
+            }
             ctx.stroke();
         });
 
@@ -514,3 +517,4 @@
 </script>
 </body>
 </html>
+                
