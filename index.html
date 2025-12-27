@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cikgu Mata Pro: Final</title>
+    <title>Cikgu Mata Pro: Final Logic</title>
     <style>
         :root {
             --bg: #f1f5f9;
@@ -11,7 +11,6 @@
             --text: #0f172a;
         }
 
-        /* HARD STOP on Body Scroll/Zoom interactions globally */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
@@ -25,12 +24,11 @@
 
         /* --- STAGE AREA --- */
         .stage-container {
-            flex: 1; /* Occupy top space */
+            flex: 1; 
             position: relative;
             background: #fff;
             border-bottom: 2px solid #cbd5e1;
             overflow: hidden;
-            /* CRITICAL: Stops browser from handling touch actions here */
             touch-action: none; 
         }
 
@@ -38,7 +36,7 @@
             display: block;
             width: 100%;
             height: 100%;
-            touch-action: none; /* Double insurance */
+            touch-action: none; 
             cursor: grab;
         }
         canvas.drawing {
@@ -70,7 +68,7 @@
         }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
 
-        /* --- TOOLBAR (Bottom Right of Canvas) --- */
+        /* --- TOOLBAR --- */
         .toolbar {
             position: absolute;
             bottom: 10px; right: 10px;
@@ -109,11 +107,11 @@
         }
         .color-dot.selected { border-color: #333; transform: scale(1.1); }
 
-        /* --- SCROLLABLE CONTROLS --- */
+        /* --- CONTROLS --- */
         .controls-area {
             flex: 0 0 auto;
             max-height: 45%;
-            overflow-y: auto; /* Allow vertical scroll only here */
+            overflow-y: auto; 
             background: var(--bg);
             padding: 15px;
         }
@@ -129,7 +127,6 @@
 
         h3 { margin: 0 0 8px 0; font-size: 0.9rem; color: var(--primary); display: flex; justify-content: space-between; }
         
-        /* Sliders & Inputs */
         input[type=range] { width: 100%; height: 30px; accent-color: var(--primary); cursor: pointer; }
         .labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-weight: 600; }
         
@@ -178,7 +175,7 @@
                 <span id="accVal">0.0 D</span>
             </h3>
             <input type="range" id="accSlider" min="0" max="15" step="0.1" value="0">
-            <div class="labels"><span>Relaxed</span><span>Max Effort</span></div>
+            <div class="labels"><span>Minimum</span><span>Max Effort</span></div>
         </div>
 
         <div class="card">
@@ -187,7 +184,6 @@
                 <option value="emmetropia">Emmetropia (Normal)</option>
                 <option value="myopia">Myopia (-2.50 D)</option>
                 <option value="hyperopia">Hyperopia (+2.50 D)</option>
-                <option value="presbyopia">Presbyopia (Normal Base)</option>
             </select>
             <div class="row">
                 <label style="font-size:0.9rem;">Age:</label>
@@ -207,8 +203,9 @@
             <div class="labels"><span>Close (10cm)</span><span>Infinity</span></div>
         </div>
 
-        <div style="height: 50px;"></div> </div>
-        <script>
+        <div style="height: 50px;"></div> 
+    </div>
+<script>
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -223,7 +220,6 @@
         maxAmpVal: document.getElementById('maxAmpVal'),
         statusText: document.getElementById('statusText'),
         statusDot: document.getElementById('statusDot'),
-        // Tools
         btnPen: document.getElementById('btnPen'),
         btnReset: document.getElementById('btnReset'),
         btnClear: document.getElementById('btnClear'),
@@ -232,52 +228,61 @@
         drawMsg: document.getElementById('drawMsg')
     };
 
-    // --- 1. APPLICATION STATE ---
+    // --- 1. APP STATE ---
     let state = {
-        condition: 'emmetropia', age: 20, maxAmp: 12.5, refError: 0,
-        accEffort: 0, actualAcc: 0, objectDistD: 0, isBlurred: false
+        condition: 'emmetropia', 
+        age: 20, 
+        maxAmp: 12.5, 
+        refError: 0, 
+        accEffort: 0, 
+        actualAcc: 0, 
+        objectDistD: 0, 
+        isBlurred: false,
+        blurReason: '' 
     };
 
     let camera = { scale: 1, x: 0, y: 0 };
-    
-    // Annotation State
-    let drawing = {
-        active: false,
-        color: '#ef4444',
-        lines: [], // Array of strokes
-        currentLine: null
-    };
+    let drawing = { active: false, color: '#ef4444', lines: [], currentLine: null };
 
-    // --- 2. OPTICAL LOGIC ---
+    // --- 2. OPTICAL LOGIC (Adjusted) ---
     function updatePhysics() {
         state.condition = ui.condSelect.value;
         
-        // Safety Clamp for Age
-        let safeAge = parseInt(ui.ageInput.value);
-        if(isNaN(safeAge)) safeAge = 20;
-        if(safeAge < 5) safeAge = 5;
-        if(safeAge > 100) safeAge = 100;
+        // Age Logic
+        let safeAge = parseInt(ui.ageInput.value) || 20;
+        if(safeAge < 5) safeAge = 5; if(safeAge > 100) safeAge = 100;
         state.age = safeAge;
         ui.ageInput.value = safeAge; 
 
+        // Hofstetter's Rule
         let amp = 18.5 - (0.3 * state.age);
         state.maxAmp = Math.max(0, amp);
         ui.maxAmpVal.innerText = state.maxAmp.toFixed(1);
 
-        if (state.condition === 'emmetropia' || state.condition === 'presbyopia') state.refError = 0;
-        if (state.condition === 'myopia') state.refError = -2.50;
-        if (state.condition === 'hyperopia') state.refError = 2.50;
+        // Refractive Error Logic
+        if (state.condition === 'emmetropia') state.refError = 0;
+        if (state.condition === 'myopia') state.refError = -2.50;  // Net: needs -2.50 to see far
+        if (state.condition === 'hyperopia') state.refError = 2.50; // Net: needs +2.50 to see far
     }
 
     function onObjectChange() {
         updatePhysics();
         let val = parseFloat(ui.distSlider.value);
-        let demand = (100 - val) / 10;
+        let demand = (100 - val) / 10; // 0D to 10D
         state.objectDistD = demand;
+
+        // Needed Acc = Demand + RefError
+        // Emmetrope (0): Needed = Demand
+        // Myope (-2.5): Needed = Demand - 2.5. 
+        //    (If Demand < 2.5, Needed is negative -> 0)
+        // Hyperope (+2.5): Needed = Demand + 2.5.
+        
         let needed = demand + state.refError;
-        if (needed < 0) needed = 0;
+        if (needed < 0) needed = 0; // Relaxed state
+        
         ui.accSlider.value = needed;
         state.accEffort = needed;
+        
         checkBlur();
         render();
     }
@@ -285,229 +290,178 @@
     function onAccChange() {
         updatePhysics();
         state.accEffort = parseFloat(ui.accSlider.value);
+        
+        // Calculate Object Distance from Effort
+        // Demand = Effort - RefError
         let clearD = state.accEffort - state.refError;
-        if (clearD < 0) clearD = 0;
+        
+        // Myopia special case: If effort is 0, ClearD = 0 - (-2.5) = +2.5D (40cm).
+        // This means max distance is 40cm. Object cannot go to infinity (0D).
+        // If ClearD < 0 (Hyperope relaxed), clamp to 0 (Infinity) for slider.
+        if (clearD < 0) clearD = 0; 
+        
         state.objectDistD = clearD;
+        
+        // Update slider UI
         let newVal = 100 - (state.objectDistD * 10);
         if (newVal < 0) newVal = 0; if (newVal > 100) newVal = 100;
         ui.distSlider.value = newVal;
+        
         checkBlur();
         render();
     }
 
     function checkBlur() {
+        state.blurReason = '';
+        state.isBlurred = false;
+
+        // 1. Check Max Accommodation (Presbyopia/Age Limit)
         if (state.accEffort > state.maxAmp) {
             state.actualAcc = state.maxAmp;
             state.isBlurred = true;
+            state.blurReason = 'Near Limit';
         } else {
             state.actualAcc = state.accEffort;
-            state.isBlurred = false;
+        }
+
+        // 2. MYOPIA FAR BLUR CHECK
+        // If Myopia (-2.50D), Far Point is 40cm (2.50D).
+        // Any object distance < 2.50D (further than 40cm) is BLURRED.
+        if (state.condition === 'myopia' && state.objectDistD < 2.45) {
+            state.isBlurred = true;
+            state.blurReason = 'Far Point';
+            // In this specific case, lens is fully relaxed (actualAcc = 0)
+            // But focal point is IN FRONT of retina.
+            state.actualAcc = 0; 
+        }
+
+        // 3. HYPEROPIA DISTANCE BLUR CHECK
+        // If Hyperopia (+2.50D), needs 2.50D just to see infinity.
+        // If MaxAmp < 2.50D (Old Age), distance is blurry.
+        if (state.condition === 'hyperopia' && state.maxAmp < 2.50 && state.objectDistD < 0.1) {
+            state.isBlurred = true;
+            state.blurReason = 'Dist Blur';
         }
     }
 
-    // --- 3. INPUT HANDLING (POINTER EVENTS - FIXED PINCH) ---
-    let evCache = [];
-    let prevDiff = -1;
-
-    function getPtrPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-    }
-
+    // --- 3. INPUT HANDLING ---
+    let evCache = []; let prevDiff = -1;
+    function getPtrPos(e) { const r = canvas.getBoundingClientRect(); return {x: e.clientX-r.left, y: e.clientY-r.top}; }
     function toWorld(sx, sy) {
-        const rect = canvas.getBoundingClientRect();
-        const w = rect.width;
-        const h = rect.height;
-        let wx = (sx - (w/2) - camera.x) / camera.scale;
-        let wy = (sy - (h/2) - camera.y) / camera.scale;
-        return {x: wx, y: wy};
+        const r = canvas.getBoundingClientRect(); const w=r.width; const h=r.height;
+        return {x: (sx-(w/2)-camera.x)/camera.scale, y: (sy-(h/2)-camera.y)/camera.scale};
     }
 
     canvas.addEventListener('pointerdown', (e) => {
-        evCache.push(e);
-        canvas.setPointerCapture(e.pointerId);
-
-        if (drawing.active) {
-            // Draw
-            if (evCache.length === 1) {
-                const pos = getPtrPos(e);
-                const worldPos = toWorld(pos.x, pos.y);
-                drawing.currentLine = { color: drawing.color, points: [worldPos] };
-                drawing.lines.push(drawing.currentLine);
-                render();
-            }
+        evCache.push(e); canvas.setPointerCapture(e.pointerId);
+        if (drawing.active && evCache.length === 1) {
+            const p = getPtrPos(e); drawing.currentLine = {color: drawing.color, points:[toWorld(p.x, p.y)]};
+            drawing.lines.push(drawing.currentLine); render();
         }
     });
 
     canvas.addEventListener('pointermove', (e) => {
-        const index = evCache.findIndex((cachedEv) => cachedEv.pointerId === e.pointerId);
-        if (index > -1) evCache[index] = e;
-
+        const i = evCache.findIndex((ev) => ev.pointerId === e.pointerId); if (i > -1) evCache[i] = e;
         if (drawing.active) {
-            // Drawing
             if (drawing.currentLine && evCache.length === 1) {
-                const pos = getPtrPos(e);
-                const worldPos = toWorld(pos.x, pos.y);
-                drawing.currentLine.points.push(worldPos);
-                render();
+                const p = getPtrPos(e); drawing.currentLine.points.push(toWorld(p.x, p.y)); render();
             }
         } else {
-            // Camera
             if (evCache.length === 2) {
-                // Pinch
-                const curDiff = Math.sqrt(
-                    Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
-                    Math.pow(evCache[1].clientY - evCache[0].clientY, 2)
-                );
+                const cur = Math.sqrt(Math.pow(evCache[1].clientX-evCache[0].clientX,2)+Math.pow(evCache[1].clientY-evCache[0].clientY,2));
                 if (prevDiff > 0) {
-                    const delta = curDiff - prevDiff;
-                    const zoomFactor = delta * 0.01;
-                    let newScale = camera.scale + zoomFactor;
-                    if (newScale > 0.5 && newScale < 5) camera.scale = newScale;
+                    let s = camera.scale + (cur - prevDiff) * 0.01;
+                    if (s > 0.5 && s < 5) camera.scale = s;
                 }
-                prevDiff = curDiff;
-                render();
+                prevDiff = cur; render();
             } else if (evCache.length === 1) {
-                // Pan
-                let dx = e.movementX || 0;
-                let dy = e.movementY || 0;
-                camera.x += dx;
-                camera.y += dy;
-                render();
+                camera.x += (e.movementX||0); camera.y += (e.movementY||0); render();
             }
         }
     });
 
-    function pointerUpHandler(e) {
-        const index = evCache.findIndex((cachedEv) => cachedEv.pointerId === e.pointerId);
-        if (index > -1) evCache.splice(index, 1);
+    function ptrUp(e) {
+        const i = evCache.findIndex((ev) => ev.pointerId === e.pointerId); if (i > -1) evCache.splice(i, 1);
         canvas.releasePointerCapture(e.pointerId);
-        
         if (evCache.length < 2) prevDiff = -1;
         if (drawing.active && evCache.length === 0) drawing.currentLine = null;
     }
+    canvas.addEventListener('pointerup', ptrUp); canvas.addEventListener('pointercancel', ptrUp);
+    
+    // Wheel
+    canvas.addEventListener('wheel', (e) => { if(drawing.active)return; e.preventDefault(); 
+        let s = camera.scale + (e.deltaY > 0 ? -0.1 : 0.1); if(s>0.5 && s<5) { camera.scale=s; render(); } }, {passive:false});
 
-    canvas.addEventListener('pointerup', pointerUpHandler);
-    canvas.addEventListener('pointercancel', pointerUpHandler);
-    canvas.addEventListener('pointerout', pointerUpHandler);
-    canvas.addEventListener('pointerleave', pointerUpHandler);
-
-    canvas.addEventListener('wheel', (e) => {
-        if(drawing.active) return;
-        e.preventDefault();
-        let delta = e.deltaY > 0 ? -0.1 : 0.1;
-        let newScale = camera.scale + delta;
-        if (newScale > 0.5 && newScale < 5) {
-            camera.scale = newScale;
-            render();
-        }
-    }, {passive: false});
-
-
-    // --- 4. TOOLBAR LOGIC ---
+    // Tools
     ui.btnPen.addEventListener('click', () => {
         drawing.active = !drawing.active;
         if(drawing.active) {
-            ui.btnPen.classList.add('active');
-            ui.colorTray.style.display = 'flex';
-            ui.drawStatus.style.display = 'flex';
-            // UPDATE MESSAGE HERE
-            ui.drawMsg.innerText = "✎ Drawing (Zoom Disabled)";
-            canvas.classList.add('drawing');
+            ui.btnPen.classList.add('active'); ui.colorTray.style.display='flex'; ui.drawStatus.style.display='flex';
+            ui.drawMsg.innerText = "✎ Drawing (Zoom Disabled)"; canvas.classList.add('drawing');
         } else {
-            ui.btnPen.classList.remove('active');
-            ui.colorTray.style.display = 'none';
-            ui.drawStatus.style.display = 'none';
-            canvas.classList.remove('drawing');
-            drawing.currentLine = null;
+            ui.btnPen.classList.remove('active'); ui.colorTray.style.display='none'; ui.drawStatus.style.display='none';
+            canvas.classList.remove('drawing'); drawing.currentLine = null;
         }
     });
-
-    ui.btnClear.addEventListener('click', () => {
-        drawing.lines = [];
-        render();
-    });
-
-    ui.btnReset.addEventListener('click', () => {
-        camera.scale = 1; camera.x = 0; camera.y = 0;
-        render();
-    });
-
-    ui.condSelect.addEventListener('change', () => {
-        if (ui.condSelect.value === 'presbyopia') ui.ageInput.value = 45;
-        updatePhysics();
-        onObjectChange();
-    });
-
-    document.querySelectorAll('.color-dot').forEach(d => {
-        d.addEventListener('click', (e) => {
-            document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('selected'));
-            e.target.classList.add('selected');
-            drawing.color = e.target.getAttribute('data-c');
-        });
-    });
+    ui.btnClear.addEventListener('click', () => { drawing.lines = []; render(); });
+    ui.btnReset.addEventListener('click', () => { camera.scale=1; camera.x=0; camera.y=0; render(); });
+    ui.condSelect.addEventListener('change', () => { updatePhysics(); onObjectChange(); });
+    ui.ageInput.addEventListener('change', () => { updatePhysics(); onObjectChange(); });
+    document.querySelectorAll('.color-dot').forEach(d => d.addEventListener('click', (e) => {
+        document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('selected'));
+        e.target.classList.add('selected'); drawing.color = e.target.getAttribute('data-c');
+    }));
+    window.addEventListener('resize', render);
 
 
-    // --- 5. RENDER ENGINE ---
+    // --- 4. RENDER ---
     function render() {
-        // UI
         ui.accVal.innerText = state.accEffort.toFixed(1) + " D";
         let dText = state.objectDistD <= 0.1 ? "Infinity" : (100/state.objectDistD).toFixed(0) + " cm";
         ui.distVal.innerText = dText;
         
         if (state.isBlurred) {
-            ui.statusText.innerText = "Blur (" + dText + ")";
-            ui.statusText.style.color = "#dc2626";
-            ui.statusDot.style.background = "#dc2626";
+            ui.statusText.innerText = "Blur (" + (state.blurReason || dText) + ")";
+            ui.statusText.style.color = "#dc2626"; ui.statusDot.style.background = "#dc2626";
         } else {
             ui.statusText.innerText = "Clear (" + dText + ")";
-            ui.statusText.style.color = "#16a34a";
-            ui.statusDot.style.background = "#16a34a";
+            ui.statusText.style.color = "#16a34a"; ui.statusDot.style.background = "#16a34a";
         }
 
-        // Setup
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
+        const dpr = window.devicePixelRatio || 1; const r = canvas.getBoundingClientRect();
+        canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+        ctx.resetTransform(); ctx.scale(dpr, dpr);
         
-        ctx.resetTransform();
-        ctx.scale(dpr, dpr);
-        
-        // World Transform
-        const w = rect.width;
-        const h = rect.height;
         ctx.save();
-        ctx.translate(w/2, h/2);
-        ctx.translate(camera.x, camera.y);
-        ctx.scale(camera.scale, camera.scale);
+        ctx.translate(r.width/2, r.height/2); ctx.translate(camera.x, camera.y); ctx.scale(camera.scale, camera.scale);
 
-        // Drawing Content
+        // -- DRAWING --
         const cx = 100; const cy = 0; const eyeRadius = 60;
 
-        // Eye Parts
+        // 1. Eye Body
         ctx.beginPath(); ctx.arc(cx, cy, eyeRadius, 0, Math.PI*2);
         ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#334155"; ctx.lineWidth = 2; ctx.stroke();
-        
+
+        // 2. Cornea
         ctx.beginPath(); ctx.arc(cx - 55, cy, 28, 1.4, 4.88);
         ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fill(); ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.stroke();
-        
+
+        // 3. Iris
         ctx.beginPath();
         ctx.moveTo(cx - 50, cy - 40); ctx.lineTo(cx - 50, cy - 15);
         ctx.moveTo(cx - 50, cy + 40); ctx.lineTo(cx - 50, cy + 15);
         ctx.strokeStyle = "#854d0e"; ctx.lineWidth = 5; ctx.stroke();
 
-        // Lens
+        // 4. Lens (SLIMMER VERSION)
+        // Previous multiplier 1.5 -> Changed to 0.8
+        // Base 6px -> Changed to 5px
         let lensX = cx - 35;
-        let growth = state.actualAcc * 1.5;
-        let lensThick = Math.min(6 + growth, 25);
+        let growth = state.actualAcc * 0.8; 
+        let lensThick = Math.min(5 + growth, 18); // Capped at 18px to avoid iris touch
         ctx.beginPath(); ctx.ellipse(lensX, cy, lensThick, 32, 0, 0, Math.PI*2);
         ctx.fillStyle = "#bae6fd"; ctx.fill(); ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.stroke();
 
-        // Object
+        // 5. Object
         let slide = parseFloat(ui.distSlider.value) / 100;
         let startX = -400; let endX = cx - 140;
         let objX = endX - (slide * (endX - startX));
@@ -517,7 +471,7 @@
             ctx.beginPath(); ctx.arc(objX, cy, 5, 0, Math.PI*2); ctx.fillStyle = "#000"; ctx.fill();
         }
 
-        // Rays
+        // 6. Rays
         let corneaX = cx - 60;
         ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2 / camera.scale; ctx.beginPath();
         if (state.objectDistD < 0.1) {
@@ -529,11 +483,28 @@
         }
         ctx.stroke();
 
-        // Retina Image
+        // 7. Retina Image & Focus Point
         let retinaX = cx + eyeRadius;
         let needed = state.objectDistD + state.refError;
         if (needed < 0) needed = 0;
-        let error = state.actualAcc - needed;
+        
+        // Calculate Error
+        // Myopia Case: If distD < 2.5, needed = 0 (relaxed). But actualAcc is 0. 
+        // Error? Logic: Eye has +2.5D excess.
+        // True Power = Base + RefError + Acc.
+        // Required = Base + ObjectDistD.
+        // Net Focus Shift = (RefError + Acc) - ObjectDistD.
+        
+        // Let's rely on standard logic:
+        // error = (Acc + RefError) - Demand
+        // If > 0: Focus in front (Myopic blur)
+        // If < 0: Focus behind (Hyperopic blur)
+        
+        // Myopia Example: Ref=+2.5, Acc=0, Demand=0 (Inf). Error = +2.5. Focus Front. Correct.
+        // Myopia Example: Ref=+2.5, Acc=0, Demand=2.5 (40cm). Error = 0. Focus Retina. Correct.
+        
+        let error = (state.actualAcc + state.refError) - state.objectDistD;
+        
         let focusX = retinaX;
         if (Math.abs(error) > 0.2) focusX = retinaX - (error * 8);
 
@@ -550,31 +521,18 @@
         }
         ctx.fill();
 
-        // Annotations
+        // 8. Ink
         ctx.lineCap = "round"; ctx.lineJoin = "round";
-        drawing.lines.forEach(line => {
-            ctx.beginPath();
-            ctx.strokeStyle = line.color;
-            ctx.lineWidth = 3 / camera.scale;
-            if (line.points.length > 0) {
-                ctx.moveTo(line.points[0].x, line.points[0].y);
-                for(let i=1; i<line.points.length; i++) ctx.lineTo(line.points[i].x, line.points[i].y);
-            }
+        drawing.lines.forEach(l => {
+            ctx.beginPath(); ctx.strokeStyle = l.color; ctx.lineWidth = 3 / camera.scale;
+            if (l.points.length > 0) { ctx.moveTo(l.points[0].x, l.points[0].y); for(let i=1; i<l.points.length; i++) ctx.lineTo(l.points[i].x, l.points[i].y); }
             ctx.stroke();
         });
 
         ctx.restore();
     }
 
-    // Start
-    ui.distSlider.addEventListener('input', onObjectChange);
-    ui.accSlider.addEventListener('input', onAccChange);
-    // Safety for age
-    ui.ageInput.addEventListener('change', () => { updatePhysics(); onObjectChange(); });
-    window.addEventListener('resize', render);
-    updatePhysics();
-    onObjectChange();
-
+    updatePhysics(); onObjectChange();
 </script>
 </body>
 </html>
